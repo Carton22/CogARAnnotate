@@ -21,12 +21,32 @@ type LogEntry = {
 };
 
 const tasks = [
-  { name: "Bread", instruction: "Take a piece of bread and put it on a plate." },
-  { name: "Ketchup", instruction: "Add ketchup and salt." },
-  { name: "Cheese", instruction: "Add a piece of cheese." },
-  { name: "Ham", instruction: "Add a piece of ham." },
-  { name: "Bread", instruction: "Add the second piece of bread." },
-  { name: "Microwave", instruction: "Put the sandwich in the microwave." },
+  {
+    name: "Bread",
+    correctInstruction: "Take a piece of bread and put it on a plate.",
+  },
+  {
+    name: "Ketchup",
+    correctInstruction: "Add ketchup.",
+    incorrectInstruction: "Add ketchup and salt.",
+  },
+  {
+    name: "Cheese",
+    correctInstruction: "Add a piece of cheese.",
+  },
+  {
+    name: "Ham",
+    correctInstruction: "Add a piece of ham.",
+  },
+  {
+    name: "Bread",
+    correctInstruction: "Add the second piece of bread.",
+    incorrectInstruction: "Put celery into this.",
+  },
+  {
+    name: "Microwave",
+    correctInstruction: "Put the sandwich in the microwave.",
+  },
 ];
 
 const relianceOptions: { key: Reliance; label: string; short: string }[] = [
@@ -63,7 +83,7 @@ export default function Home() {
   const [now, setNow] = useState(() => Date.now());
   const [taskState, setTaskState] = useState<Record<number, TaskState>>(emptyTaskState);
   const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [playingTask, setPlayingTask] = useState<number | null>(null);
+  const [playingCue, setPlayingCue] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY);
@@ -131,16 +151,19 @@ export default function Home() {
     setStartedAt(new Date().getTime());
   };
 
-  const playAudio = (taskNumber: number) => {
+  const playInstruction = (
+    taskNumber: number,
+    instruction: string,
+    kind: "correct" | "incorrect",
+  ) => {
     ensureStarted();
-    const task = tasks[taskNumber - 1];
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(task.instruction);
+    const utterance = new SpeechSynthesisUtterance(instruction);
     utterance.rate = 0.92;
     utterance.pitch = 1;
-    utterance.onend = () => setPlayingTask(null);
-    utterance.onerror = () => setPlayingTask(null);
-    setPlayingTask(taskNumber);
+    utterance.onend = () => setPlayingCue(null);
+    utterance.onerror = () => setPlayingCue(null);
+    setPlayingCue(`${taskNumber}-${kind}`);
     window.speechSynthesis.speak(utterance);
     setTaskState((current) => ({
       ...current,
@@ -149,7 +172,11 @@ export default function Home() {
         audioPlays: current[taskNumber].audioPlays + 1,
       },
     }));
-    addLog(taskNumber, "AI audio", task.instruction);
+    addLog(
+      taskNumber,
+      kind === "correct" ? "Correct instruction" : "Incorrect instruction",
+      instruction,
+    );
   };
 
   const markFinalAct = (taskNumber: number) => {
@@ -185,7 +212,7 @@ export default function Home() {
     setStartedAt(null);
     setTaskState(emptyTaskState());
     setLogs([]);
-    setPlayingTask(null);
+    setPlayingCue(null);
     window.localStorage.removeItem(STORAGE_KEY);
   };
 
@@ -248,8 +275,8 @@ export default function Home() {
           <p className="eyebrow">WIZARD OF OZ · TASK A</p>
           <h2>Sandwich plan</h2>
           <p className="intro-copy">
-            Trigger the AI instruction, mark the participant&apos;s final act, then classify
-            their reliance for each step.
+            Play a blue correct instruction or a red incorrect instruction, mark the
+            participant&apos;s final act, then classify their reliance.
           </p>
         </div>
         <div className="progress-card">
@@ -274,7 +301,13 @@ export default function Home() {
         <div className="matrix-scroll">
           <div className="matrix" role="table" aria-label="Task control matrix">
             <div className="matrix-header" role="row">
-              <div className="step-heading" role="columnheader">Task sequence</div>
+              <div className="step-heading" role="columnheader">
+                <span>Task sequence &amp; instructions</span>
+                <span className="cue-legend">
+                  <span className="legend-correct">Correct</span>
+                  <span className="legend-incorrect">Incorrect</span>
+                </span>
+              </div>
               <div role="columnheader">AI audio</div>
               <div role="columnheader">Final act</div>
               {relianceOptions.map((option) => (
@@ -295,17 +328,66 @@ export default function Home() {
                     <div className="step-number">{String(taskNumber).padStart(2, "0")}</div>
                     <div className="step-copy">
                       <strong>{task.name}</strong>
-                      <span>{task.instruction}</span>
+                      <div className="instruction-cues">
+                        <button
+                          type="button"
+                          className={`cue-button cue-correct ${
+                            playingCue === `${taskNumber}-correct` ? "is-playing" : ""
+                          }`}
+                          onClick={() =>
+                            playInstruction(
+                              taskNumber,
+                              task.correctInstruction,
+                              "correct",
+                            )
+                          }
+                          aria-label={`Play correct instruction for task ${taskNumber}: ${task.correctInstruction}`}
+                          data-testid={`correct-instruction-${taskNumber}`}
+                        >
+                          <span aria-hidden="true">▶</span>
+                          {task.correctInstruction}
+                        </button>
+                        {task.incorrectInstruction ? (
+                          <button
+                            type="button"
+                            className={`cue-button cue-incorrect ${
+                              playingCue === `${taskNumber}-incorrect`
+                                ? "is-playing"
+                                : ""
+                            }`}
+                            onClick={() =>
+                              playInstruction(
+                                taskNumber,
+                                task.incorrectInstruction!,
+                                "incorrect",
+                              )
+                            }
+                            aria-label={`Play incorrect instruction for task ${taskNumber}: ${task.incorrectInstruction}`}
+                            data-testid={`incorrect-instruction-${taskNumber}`}
+                          >
+                            <span aria-hidden="true">▶</span>
+                            {task.incorrectInstruction}
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
 
                   <div role="cell" className="action-cell">
                     <button
                       type="button"
-                      className={`circle-button audio-button ${playingTask === taskNumber ? "is-playing" : ""}`}
-                      onClick={() => playAudio(taskNumber)}
-                      aria-label={`Play AI audio for task ${taskNumber}: ${task.instruction}`}
-                      title="Play AI instruction"
+                      className={`circle-button audio-button ${
+                        playingCue === `${taskNumber}-correct` ? "is-playing" : ""
+                      }`}
+                      onClick={() =>
+                        playInstruction(
+                          taskNumber,
+                          task.correctInstruction,
+                          "correct",
+                        )
+                      }
+                      aria-label={`Play correct AI audio for task ${taskNumber}: ${task.correctInstruction}`}
+                      title="Play correct AI instruction"
                       data-testid={`audio-${taskNumber}`}
                     >
                       <span className="speaker-icon" aria-hidden="true">▶</span>
