@@ -25,7 +25,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const origin = `${protocol}://${host}`;
 
   return {
-    title: "DeTeReliance · Wizard of Oz Control Console",
+    title: "CogAR · Wizard of Oz Control Console",
     description:
       "A task-by-task operator console for AI audio cues, final-act timestamps, and reliance classification.",
     icons: {
@@ -33,13 +33,13 @@ export async function generateMetadata(): Promise<Metadata> {
       shortcut: "/favicon.svg",
     },
     openGraph: {
-      title: "DeTeReliance",
+      title: "CogAR",
       description: "Wizard of Oz Control Console",
       images: [`${origin}/og.png`],
     },
     twitter: {
       card: "summary_large_image",
-      title: "DeTeReliance",
+      title: "CogAR",
       description: "Wizard of Oz Control Console",
       images: [`${origin}/og.png`],
     },

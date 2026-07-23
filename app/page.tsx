@@ -234,7 +234,7 @@ export default function Home() {
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `dete-reliance-${new Date().toISOString().slice(0, 19)}.csv`;
+    anchor.download = `cogar-${new Date().toISOString().slice(0, 19)}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
   };
@@ -249,10 +249,10 @@ export default function Home() {
     <main>
       <header className="topbar">
         <div className="brand">
-          <div className="brand-mark" aria-hidden="true">D</div>
+          <div className="brand-mark" aria-hidden="true">C</div>
           <div>
             <p className="eyebrow">RESEARCH CONSOLE</p>
-            <h1>DeTe<span>Reliance</span></h1>
+            <h1>Cog<span>AR</span></h1>
           </div>
         </div>
         <div className="session-tools">
@@ -477,7 +477,7 @@ export default function Home() {
 
       <footer>
         <p>Records stay on this device until you reset the session.</p>
-        <p>DeTeReliance · Wizard of Oz operator view</p>
+        <p>CogAR · Wizard of Oz operator view</p>
       </footer>
     </main>
   );
