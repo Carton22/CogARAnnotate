@@ -20,32 +20,38 @@ type LogEntry = {
   elapsed: number;
 };
 
-const tasks = [
+type Task = {
+  name: string;
+  correctOptions: string[];
+  incorrectOptions?: string[];
+};
+
+const tasks: Task[] = [
   {
     name: "Bread",
-    correctInstruction: "Take a piece of bread and put it on a plate.",
+    correctOptions: ["Take a piece of bread and put it on a plate."],
   },
   {
     name: "Ketchup",
-    correctInstruction: "Add ketchup.",
-    incorrectInstruction: "Add ketchup and salt.",
+    correctOptions: ["Add ketchup."],
+    incorrectOptions: ["Add ketchup and salt."],
   },
   {
     name: "Cheese",
-    correctInstruction: "Add a piece of cheese.",
+    correctOptions: ["Add a piece of cheese."],
   },
   {
     name: "Ham",
-    correctInstruction: "Add a piece of ham.",
+    correctOptions: ["Add a piece of ham."],
   },
   {
     name: "Bread",
-    correctInstruction: "Add the second piece of bread.",
-    incorrectInstruction: "Put celery into this.",
+    correctOptions: ["Add bread."],
+    incorrectOptions: ["Put celery into this."],
   },
   {
     name: "Microwave",
-    correctInstruction: "Put the sandwich in the microwave.",
+    correctOptions: ["Put into microwave."],
   },
 ];
 
@@ -155,6 +161,7 @@ export default function Home() {
     taskNumber: number,
     instruction: string,
     kind: "correct" | "incorrect",
+    optionIndex = 0,
   ) => {
     ensureStarted();
     window.speechSynthesis.cancel();
@@ -163,7 +170,7 @@ export default function Home() {
     utterance.pitch = 1;
     utterance.onend = () => setPlayingCue(null);
     utterance.onerror = () => setPlayingCue(null);
-    setPlayingCue(`${taskNumber}-${kind}`);
+    setPlayingCue(`${taskNumber}-${kind}-${optionIndex}`);
     window.speechSynthesis.speak(utterance);
     setTaskState((current) => ({
       ...current,
@@ -174,7 +181,9 @@ export default function Home() {
     }));
     addLog(
       taskNumber,
-      kind === "correct" ? "Correct instruction" : "Incorrect instruction",
+      kind === "correct"
+        ? "Alternative correct option"
+        : "Incorrect instruction",
       instruction,
     );
   };
@@ -275,8 +284,8 @@ export default function Home() {
           <p className="eyebrow">WIZARD OF OZ · TASK A</p>
           <h2>Sandwich plan</h2>
           <p className="intro-copy">
-            Play a blue correct instruction or a red incorrect instruction, mark the
-            participant&apos;s final act, then classify their reliance.
+            Choose a blue alternative correct option or a red incorrect instruction,
+            mark the participant&apos;s final act, then classify their reliance.
           </p>
         </div>
         <div className="progress-card">
@@ -304,7 +313,7 @@ export default function Home() {
               <div className="step-heading" role="columnheader">
                 <span>Task sequence &amp; instructions</span>
                 <span className="cue-legend">
-                  <span className="legend-correct">Correct</span>
+                  <span className="legend-correct">Alternative correct</span>
                   <span className="legend-incorrect">Incorrect</span>
                 </span>
               </div>
@@ -329,46 +338,60 @@ export default function Home() {
                     <div className="step-copy">
                       <strong>{task.name}</strong>
                       <div className="instruction-cues">
-                        <button
-                          type="button"
-                          className={`cue-button cue-correct ${
-                            playingCue === `${taskNumber}-correct` ? "is-playing" : ""
-                          }`}
-                          onClick={() =>
-                            playInstruction(
-                              taskNumber,
-                              task.correctInstruction,
-                              "correct",
-                            )
-                          }
-                          aria-label={`Play correct instruction for task ${taskNumber}: ${task.correctInstruction}`}
-                          data-testid={`correct-instruction-${taskNumber}`}
-                        >
-                          <span aria-hidden="true">▶</span>
-                          {task.correctInstruction}
-                        </button>
-                        {task.incorrectInstruction ? (
+                        {task.correctOptions.map((option, optionIndex) => (
                           <button
                             type="button"
-                            className={`cue-button cue-incorrect ${
-                              playingCue === `${taskNumber}-incorrect`
+                            className={`cue-button cue-correct ${
+                              playingCue ===
+                              `${taskNumber}-correct-${optionIndex}`
                                 ? "is-playing"
                                 : ""
                             }`}
                             onClick={() =>
                               playInstruction(
                                 taskNumber,
-                                task.incorrectInstruction!,
-                                "incorrect",
+                                option,
+                                "correct",
+                                optionIndex,
                               )
                             }
-                            aria-label={`Play incorrect instruction for task ${taskNumber}: ${task.incorrectInstruction}`}
-                            data-testid={`incorrect-instruction-${taskNumber}`}
+                            aria-label={`Play alternative correct option ${
+                              optionIndex + 1
+                            } for task ${taskNumber}: ${option}`}
+                            data-testid={`correct-option-${taskNumber}-${optionIndex}`}
+                            key={option}
                           >
                             <span aria-hidden="true">▶</span>
-                            {task.incorrectInstruction}
+                            {option}
                           </button>
-                        ) : null}
+                        ))}
+                        {task.incorrectOptions?.map((option, optionIndex) => (
+                          <button
+                            type="button"
+                            className={`cue-button cue-incorrect ${
+                              playingCue ===
+                              `${taskNumber}-incorrect-${optionIndex}`
+                                ? "is-playing"
+                                : ""
+                            }`}
+                            onClick={() =>
+                              playInstruction(
+                                taskNumber,
+                                option,
+                                "incorrect",
+                                optionIndex,
+                              )
+                            }
+                            aria-label={`Play incorrect instruction ${
+                              optionIndex + 1
+                            } for task ${taskNumber}: ${option}`}
+                            data-testid={`incorrect-option-${taskNumber}-${optionIndex}`}
+                            key={option}
+                          >
+                            <span aria-hidden="true">▶</span>
+                            {option}
+                          </button>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -377,16 +400,18 @@ export default function Home() {
                     <button
                       type="button"
                       className={`circle-button audio-button ${
-                        playingCue === `${taskNumber}-correct` ? "is-playing" : ""
+                        playingCue === `${taskNumber}-correct-0`
+                          ? "is-playing"
+                          : ""
                       }`}
                       onClick={() =>
                         playInstruction(
                           taskNumber,
-                          task.correctInstruction,
+                          task.correctOptions[0],
                           "correct",
                         )
                       }
-                      aria-label={`Play correct AI audio for task ${taskNumber}: ${task.correctInstruction}`}
+                      aria-label={`Play first alternative correct option for task ${taskNumber}: ${task.correctOptions[0]}`}
                       title="Play correct AI instruction"
                       data-testid={`audio-${taskNumber}`}
                     >
