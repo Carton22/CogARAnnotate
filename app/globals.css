@@ -439,6 +439,13 @@ h2 {
   box-shadow: 0 5px 12px rgba(59, 130, 246, 0.18);
 }
 
+.cue-correct.is-hint-only {
+  background: #4a95ef;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.45),
+    0 5px 12px rgba(59, 130, 246, 0.14);
+}
+
 .cue-incorrect {
   background: var(--coral);
   box-shadow: 0 5px 12px rgba(240, 100, 73, 0.18);

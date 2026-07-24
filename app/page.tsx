@@ -23,6 +23,7 @@ type LogEntry = {
 type Task = {
   name: string;
   correctOptions: string[];
+  correctOptionsAreHints?: boolean;
   incorrectOptions?: string[];
 };
 
@@ -34,6 +35,7 @@ const tasks: Task[] = [
   {
     name: "Ketchup",
     correctOptions: ["Add ketchup."],
+    correctOptionsAreHints: true,
     incorrectOptions: ["Add ketchup and salt."],
   },
   {
@@ -47,6 +49,7 @@ const tasks: Task[] = [
   {
     name: "Bread",
     correctOptions: ["Add bread."],
+    correctOptionsAreHints: true,
     incorrectOptions: ["Put celery into this."],
   },
   {
@@ -162,8 +165,8 @@ export default function Home() {
     instruction: string,
     kind: "correct" | "incorrect",
     optionIndex = 0,
+    shouldRecord = true,
   ) => {
-    ensureStarted();
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(instruction);
     utterance.rate = 0.92;
@@ -172,20 +175,23 @@ export default function Home() {
     utterance.onerror = () => setPlayingCue(null);
     setPlayingCue(`${taskNumber}-${kind}-${optionIndex}`);
     window.speechSynthesis.speak(utterance);
-    setTaskState((current) => ({
-      ...current,
-      [taskNumber]: {
-        ...current[taskNumber],
-        audioPlays: current[taskNumber].audioPlays + 1,
-      },
-    }));
-    addLog(
-      taskNumber,
-      kind === "correct"
-        ? "Alternative correct option"
-        : "Incorrect instruction",
-      instruction,
-    );
+    if (shouldRecord) {
+      ensureStarted();
+      setTaskState((current) => ({
+        ...current,
+        [taskNumber]: {
+          ...current[taskNumber],
+          audioPlays: current[taskNumber].audioPlays + 1,
+        },
+      }));
+      addLog(
+        taskNumber,
+        kind === "correct"
+          ? "Alternative correct option"
+          : "Incorrect instruction",
+        instruction,
+      );
+    }
   };
 
   const markFinalAct = (taskNumber: number) => {
@@ -342,6 +348,8 @@ export default function Home() {
                           <button
                             type="button"
                             className={`cue-button cue-correct ${
+                              task.correctOptionsAreHints ? "is-hint-only" : ""
+                            } ${
                               playingCue ===
                               `${taskNumber}-correct-${optionIndex}`
                                 ? "is-playing"
@@ -353,11 +361,19 @@ export default function Home() {
                                 option,
                                 "correct",
                                 optionIndex,
+                                !task.correctOptionsAreHints,
                               )
                             }
-                            aria-label={`Play alternative correct option ${
+                            aria-label={`Play ${
+                              task.correctOptionsAreHints ? "unlogged hint" : "alternative correct option"
+                            } ${
                               optionIndex + 1
                             } for task ${taskNumber}: ${option}`}
+                            title={
+                              task.correctOptionsAreHints
+                                ? "Hint only — not added to the event log"
+                                : "Play alternative correct option"
+                            }
                             data-testid={`correct-option-${taskNumber}-${optionIndex}`}
                             key={option}
                           >
