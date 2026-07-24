@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Reliance = "app-rely" | "over-rely" | "under-rely" | "app-reject";
 
@@ -20,41 +20,93 @@ type LogEntry = {
   elapsed: number;
 };
 
+type InstructionOption = {
+  audioSrc: string;
+  text: string;
+};
+
 type Task = {
   name: string;
-  correctOptions: string[];
+  correctOptions: InstructionOption[];
   correctOptionsAreHints?: boolean;
-  incorrectOptions?: string[];
+  incorrectOptions?: InstructionOption[];
+  mainKind: "correct" | "incorrect";
 };
 
 const tasks: Task[] = [
   {
     name: "Bread",
-    correctOptions: ["Take a piece of bread and put it on a plate."],
+    correctOptions: [
+      {
+        text: "Take a piece of bread and put in a plate.",
+        audioSrc: "/audio/sandwich/step01_main_take_bread.mp3",
+      },
+    ],
+    mainKind: "correct",
   },
   {
     name: "Ketchup",
-    correctOptions: ["Add ketchup."],
+    correctOptions: [
+      {
+        text: "Add ketchup",
+        audioSrc: "/audio/sandwich/step02_alt_add_ketchup.mp3",
+      },
+    ],
     correctOptionsAreHints: true,
-    incorrectOptions: ["Add ketchup and salt."],
+    incorrectOptions: [
+      {
+        text: "Add ketchup and salt",
+        audioSrc: "/audio/sandwich/step02_main_add_ketchup_salt.mp3",
+      },
+    ],
+    mainKind: "incorrect",
   },
   {
     name: "Cheese",
-    correctOptions: ["Add a piece of cheese."],
+    correctOptions: [
+      {
+        text: "Add a piece of cheese.",
+        audioSrc: "/audio/sandwich/step03_main_add_cheese.mp3",
+      },
+    ],
+    mainKind: "correct",
   },
   {
     name: "Ham",
-    correctOptions: ["Add a piece of ham."],
+    correctOptions: [
+      {
+        text: "Add a piece of ham.",
+        audioSrc: "/audio/sandwich/step04_main_add_ham.mp3",
+      },
+    ],
+    mainKind: "correct",
   },
   {
     name: "Bread",
-    correctOptions: ["Add bread."],
+    correctOptions: [
+      {
+        text: "Add bread",
+        audioSrc: "/audio/sandwich/step05_alt_add_bread.mp3",
+      },
+    ],
     correctOptionsAreHints: true,
-    incorrectOptions: ["Put celery into this."],
+    incorrectOptions: [
+      {
+        text: "Put celery into this",
+        audioSrc: "/audio/sandwich/step05_main_put_celery.mp3",
+      },
+    ],
+    mainKind: "incorrect",
   },
   {
     name: "Microwave",
-    correctOptions: ["Put into microwave."],
+    correctOptions: [
+      {
+        text: "Put into microwave.",
+        audioSrc: "/audio/sandwich/step06_main_put_microwave.mp3",
+      },
+    ],
+    mainKind: "correct",
   },
 ];
 
@@ -94,6 +146,7 @@ export default function Home() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [playingCue, setPlayingCue] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   useEffect(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     let restored:
@@ -135,7 +188,8 @@ export default function Home() {
 
   useEffect(() => {
     return () => {
-      window.speechSynthesis?.cancel();
+      audioRef.current?.pause();
+      audioRef.current = null;
     };
   }, []);
 
@@ -162,19 +216,23 @@ export default function Home() {
 
   const playInstruction = (
     taskNumber: number,
-    instruction: string,
+    option: InstructionOption,
     kind: "correct" | "incorrect",
     optionIndex = 0,
     shouldRecord = true,
+    actionLabel?: string,
   ) => {
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(instruction);
-    utterance.rate = 0.92;
-    utterance.pitch = 1;
-    utterance.onend = () => setPlayingCue(null);
-    utterance.onerror = () => setPlayingCue(null);
+    audioRef.current?.pause();
+    if (audioRef.current) audioRef.current.currentTime = 0;
+
+    const audio = new Audio(option.audioSrc);
+    audio.preload = "auto";
+    audio.onended = () => setPlayingCue(null);
+    audio.onerror = () => setPlayingCue(null);
+    audioRef.current = audio;
     setPlayingCue(`${taskNumber}-${kind}-${optionIndex}`);
-    window.speechSynthesis.speak(utterance);
+    void audio.play().catch(() => setPlayingCue(null));
+
     if (shouldRecord) {
       ensureStarted();
       setTaskState((current) => ({
@@ -186,10 +244,11 @@ export default function Home() {
       }));
       addLog(
         taskNumber,
-        kind === "correct"
-          ? "Alternative correct option"
-          : "Incorrect instruction",
-        instruction,
+        actionLabel ??
+          (kind === "correct"
+            ? "Alternative correct option"
+            : "Incorrect instruction"),
+        option.text,
       );
     }
   };
@@ -223,7 +282,8 @@ export default function Home() {
 
   const resetSession = () => {
     if (!window.confirm("Reset this session and remove all local records?")) return;
-    window.speechSynthesis.cancel();
+    audioRef.current?.pause();
+    audioRef.current = null;
     setStartedAt(null);
     setTaskState(emptyTaskState());
     setLogs([]);
@@ -368,17 +428,17 @@ export default function Home() {
                               task.correctOptionsAreHints ? "unlogged hint" : "alternative correct option"
                             } ${
                               optionIndex + 1
-                            } for task ${taskNumber}: ${option}`}
+                            } for task ${taskNumber}: ${option.text}`}
                             title={
                               task.correctOptionsAreHints
                                 ? "Hint only — not added to the event log"
                                 : "Play alternative correct option"
                             }
                             data-testid={`correct-option-${taskNumber}-${optionIndex}`}
-                            key={option}
+                            key={option.audioSrc}
                           >
                             <span aria-hidden="true">▶</span>
-                            {option}
+                            {option.text}
                           </button>
                         ))}
                         {task.incorrectOptions?.map((option, optionIndex) => (
@@ -400,12 +460,12 @@ export default function Home() {
                             }
                             aria-label={`Play incorrect instruction ${
                               optionIndex + 1
-                            } for task ${taskNumber}: ${option}`}
+                            } for task ${taskNumber}: ${option.text}`}
                             data-testid={`incorrect-option-${taskNumber}-${optionIndex}`}
-                            key={option}
+                            key={option.audioSrc}
                           >
                             <span aria-hidden="true">▶</span>
-                            {option}
+                            {option.text}
                           </button>
                         ))}
                       </div>
@@ -416,19 +476,26 @@ export default function Home() {
                     <button
                       type="button"
                       className={`circle-button audio-button ${
-                        playingCue === `${taskNumber}-correct-0`
+                        playingCue === `${taskNumber}-${task.mainKind}-0`
                           ? "is-playing"
                           : ""
                       }`}
-                      onClick={() =>
+                      onClick={() => {
+                        const mainOption =
+                          task.mainKind === "correct"
+                            ? task.correctOptions[0]
+                            : task.incorrectOptions![0];
                         playInstruction(
                           taskNumber,
-                          task.correctOptions[0],
-                          "correct",
-                        )
-                      }
-                      aria-label={`Play first alternative correct option for task ${taskNumber}: ${task.correctOptions[0]}`}
-                      title="Play correct AI instruction"
+                          mainOption,
+                          task.mainKind,
+                          0,
+                          true,
+                          "AI audio",
+                        );
+                      }}
+                      aria-label={`Play main AI audio for task ${taskNumber}`}
+                      title="Play main AI instruction"
                       data-testid={`audio-${taskNumber}`}
                     >
                       <span className="speaker-icon" aria-hidden="true">▶</span>
