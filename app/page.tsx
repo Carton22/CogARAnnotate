@@ -38,7 +38,6 @@ type InstructionOption = {
 type Task = {
   name: string;
   correctOptions: InstructionOption[];
-  correctOptionsAreHints?: boolean;
   incorrectOptions?: InstructionOption[];
   mainKind: CueKind;
 };
@@ -79,7 +78,6 @@ const plans: Plan[] = [
             audioSrc: "/audio/sandwich/step02_alt_add_ketchup.mp3",
           },
         ],
-        correctOptionsAreHints: true,
         incorrectOptions: [
           {
             text: "Add ketchup and salt",
@@ -116,7 +114,6 @@ const plans: Plan[] = [
             audioSrc: "/audio/sandwich/step05_alt_add_bread.mp3",
           },
         ],
-        correctOptionsAreHints: true,
         incorrectOptions: [
           {
             text: "Put celery into this",
@@ -227,7 +224,6 @@ const plans: Plan[] = [
             tone: "green",
           },
         ],
-        correctOptionsAreHints: true,
         incorrectOptions: [
           {
             text: "Insert a black piece (back) on the right side",
@@ -289,7 +285,6 @@ const plans: Plan[] = [
               "/audio/strawberry-matcha-drink/step03_alt_add_boba.mp3",
           },
         ],
-        correctOptionsAreHints: true,
         incorrectOptions: [
           {
             text: "Add boba and a few lemon drops.",
@@ -352,7 +347,6 @@ const plans: Plan[] = [
               "/audio/strawberry-matcha-drink/step08_alt_matcha_third_layer.mp3",
           },
         ],
-        correctOptionsAreHints: true,
         incorrectOptions: [
           {
             text: "Pour in the matcha cream and stir until evenly mixed.",
@@ -424,7 +418,6 @@ const plans: Plan[] = [
               "/audio/box-assembly/step03_alt_connect_another_no3_no4.mp3",
           },
         ],
-        correctOptionsAreHints: true,
         incorrectOptions: [
           {
             text: "Connect the No.1 piece with the No.4 piece",
@@ -448,7 +441,6 @@ const plans: Plan[] = [
               "/audio/box-assembly/step04_alt_insert_no6_between_no3.mp3",
           },
         ],
-        correctOptionsAreHints: true,
         mainKind: "correct",
       },
       {
@@ -531,7 +523,6 @@ const plans: Plan[] = [
               "/audio/box-assembly/step11_alt_replace_no6_no9.mp3",
           },
         ],
-        correctOptionsAreHints: true,
         incorrectOptions: [
           {
             text: "Take two No.8 pieces and two No.6 pieces and connect together into a box",
@@ -1043,12 +1034,8 @@ export default function Home() {
                             {task.correctOptions.map((option, optionIndex) => (
                               <button
                                 type="button"
-                                className={`cue-button cue-correct ${
+                                className={`cue-button cue-correct is-hint-only ${
                                   option.tone === "green" ? "cue-green" : ""
-                                } ${
-                                  task.correctOptionsAreHints
-                                    ? "is-hint-only"
-                                    : ""
                                 } ${
                                   playingCue ===
                                   `${activePlan.id}-${taskNumber}-correct-${optionIndex}`
@@ -1062,21 +1049,15 @@ export default function Home() {
                                     option,
                                     "correct",
                                     optionIndex,
-                                    !task.correctOptionsAreHints,
+                                    false,
                                   )
                                 }
-                                aria-label={`Play ${
-                                  task.correctOptionsAreHints
-                                    ? "unlogged hint"
-                                    : "correct option"
-                                } ${optionIndex + 1} for task ${taskNumber}: ${
+                                aria-label={`Play unlogged instruction preview ${
+                                  optionIndex + 1
+                                } for task ${taskNumber}: ${
                                   option.text
                                 }`}
-                                title={
-                                  task.correctOptionsAreHints
-                                    ? "Hint only — not added to the event log"
-                                    : "Play correct instruction"
-                                }
+                                title="Preview only — no timestamp or event log"
                                 data-testid={`${activePlan.id}-correct-option-${taskNumber}-${optionIndex}`}
                                 key={option.audioSrc}
                               >
@@ -1101,11 +1082,13 @@ export default function Home() {
                                       option,
                                       "incorrect",
                                       optionIndex,
+                                      false,
                                     )
                                   }
-                                  aria-label={`Play incorrect instruction ${
+                                  aria-label={`Play unlogged incorrect instruction preview ${
                                     optionIndex + 1
                                   } for task ${taskNumber}: ${option.text}`}
+                                  title="Preview only — no timestamp or event log"
                                   data-testid={`${activePlan.id}-incorrect-option-${taskNumber}-${optionIndex}`}
                                   key={option.audioSrc}
                                 >
