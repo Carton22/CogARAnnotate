@@ -18,8 +18,6 @@ type TaskState = {
   userActStartElapsed?: number;
   userActEndAt?: string;
   userActEndElapsed?: number;
-  taskCompleteAt?: string;
-  taskCompleteElapsed?: number;
   // Legacy fields from the previous single "Final act" control.
   finalAt?: string;
   finalElapsed?: number;
@@ -598,6 +596,7 @@ export default function Home() {
     "next",
   );
   const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [completedAt, setCompletedAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [taskState, setTaskState] =
     useState<Record<PlanId, Record<number, TaskState>>>(emptyTaskState);
@@ -616,6 +615,7 @@ export default function Home() {
       | {
           activePlanIndex?: number;
           startedAt?: number | null;
+          completedAt?: number | null;
           taskState?: Record<PlanId, Record<number, TaskState>>;
           logs?: LogEntry[];
         }
@@ -635,6 +635,7 @@ export default function Home() {
           Math.min(Math.max(restored.activePlanIndex ?? 0, 0), plans.length - 1),
         );
         setStartedAt(restored.startedAt ?? null);
+        setCompletedAt(restored.completedAt ?? null);
         setTaskState({
           ...emptyTaskState(),
           ...(restored.taskState ?? {}),
@@ -656,9 +657,15 @@ export default function Home() {
     if (!hydrated) return;
     window.localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ activePlanIndex, startedAt, taskState, logs }),
+      JSON.stringify({
+        activePlanIndex,
+        startedAt,
+        completedAt,
+        taskState,
+        logs,
+      }),
     );
-  }, [activePlanIndex, hydrated, logs, startedAt, taskState]);
+  }, [activePlanIndex, completedAt, hydrated, logs, startedAt, taskState]);
 
   useEffect(() => {
     return () => {
@@ -668,7 +675,7 @@ export default function Home() {
   }, []);
 
   const elapsed = startedAt
-    ? Math.max(0, Math.floor((now - startedAt) / 1000))
+    ? Math.max(0, Math.floor(((completedAt ?? now) - startedAt) / 1000))
     : 0;
   const actStarted = Object.values(activeState).filter(
     (item) => item.userActStartAt,
@@ -676,47 +683,38 @@ export default function Home() {
   const actEnded = Object.values(activeState).filter(
     (item) => item.userActEndAt ?? item.finalAt,
   ).length;
-  const tasksCompleted = Object.values(activeState).filter(
-    (item) => item.taskCompleteAt,
-  ).length;
   const classified = Object.values(activeState).filter(
     (item) => item.reliance,
   ).length;
   const progress = Math.round(
-    ((actStarted + actEnded + tasksCompleted + classified) /
-      (activePlan.tasks.length * 4)) *
+    ((actStarted + actEnded + classified) /
+      (activePlan.tasks.length * 3)) *
       100,
   );
-  const allTaskStates = Object.values(taskState).flatMap((state) =>
-    Object.values(state),
-  );
-  const allComplete =
-    allTaskStates.length > 0 &&
-    allTaskStates.every(
-      (state) =>
-        state.userActStartAt &&
-        (state.userActEndAt ?? state.finalAt) &&
-        state.taskCompleteAt &&
-        state.reliance,
-    );
 
-  const ensureStarted = () => {
-    if (startedAt) return;
-    setStartedAt(new Date().getTime());
-  };
-
-  const startTaskSession = () => {
+  const handleSessionAction = () => {
     audioRef.current?.pause();
     if (audioRef.current) audioRef.current.currentTime = 0;
 
-    const audio = new Audio("/audio/session/task_start.m4a");
+    const isStarting = !startedAt;
+    const audio = new Audio(
+      isStarting
+        ? "/audio/session/task_start.m4a"
+        : "/audio/session/task_complete.m4a",
+    );
     audio.preload = "auto";
     audio.onended = () => setPlayingCue(null);
     audio.onerror = () => setPlayingCue(null);
     audioRef.current = audio;
-    setPlayingCue("session-start");
+    setPlayingCue(isStarting ? "session-start" : "session-complete");
     void audio.play().catch(() => setPlayingCue(null));
-    ensureStarted();
+
+    if (isStarting) {
+      setStartedAt(new Date().getTime());
+      setCompletedAt(null);
+    } else if (!completedAt) {
+      setCompletedAt(new Date().getTime());
+    }
   };
 
   const addLog = (
@@ -829,21 +827,6 @@ export default function Home() {
     }));
   };
 
-  const markTaskComplete = (planId: PlanId, taskNumber: number) => {
-    const timestamp = new Date().toISOString();
-    const elapsedAtAction = startedAt
-      ? Math.max(
-          0,
-          Math.floor((new Date().getTime() - startedAt) / 1000),
-        )
-      : 0;
-    updateTask(planId, taskNumber, (current) => ({
-      ...current,
-      taskCompleteAt: timestamp,
-      taskCompleteElapsed: elapsedAtAction,
-    }));
-  };
-
   const markReliance = (
     planId: PlanId,
     taskNumber: number,
@@ -883,6 +866,7 @@ export default function Home() {
     audioRef.current?.pause();
     audioRef.current = null;
     setStartedAt(null);
+    setCompletedAt(null);
     setTaskState(emptyTaskState());
     setLogs([]);
     setPlayingCue(null);
@@ -928,9 +912,9 @@ export default function Home() {
 
   const sessionLabel = useMemo(() => {
     if (!startedAt) return "Ready";
-    if (allComplete) return "Complete";
+    if (completedAt) return "Complete";
     return "Live session";
-  }, [allComplete, startedAt]);
+  }, [completedAt, startedAt]);
 
   return (
     <main>
@@ -950,23 +934,30 @@ export default function Home() {
           <button
             type="button"
             className={`task-start-button ${
-              playingCue === "session-start" ? "is-playing" : ""
+              playingCue ===
+              (startedAt ? "session-complete" : "session-start")
+                ? "is-playing"
+                : ""
             } ${startedAt ? "is-started" : ""}`}
-            onClick={startTaskSession}
+            onClick={handleSessionAction}
             aria-label={
-              startedAt
-                ? "Replay task start audio without resetting the session timer"
-                : "Play task start audio and start the session timer"
+              !startedAt
+                ? "Play task start audio and start the session timer"
+                : completedAt
+                  ? "Replay task complete audio"
+                  : "Play task complete audio and stop the session timer"
             }
             title={
-              startedAt
-                ? "Replay audio — session timer will continue"
-                : "Play audio and start session timer"
+              !startedAt
+                ? "Play audio and start session timer"
+                : completedAt
+                  ? "Replay task complete audio"
+                  : "Play audio and complete session"
             }
-            data-testid="task-start"
+            data-testid={startedAt ? "task-complete" : "task-start"}
           >
-            <span aria-hidden="true">▶</span>
-            {startedAt ? "Task started" : "Task start"}
+            <span aria-hidden="true">{completedAt ? "✓" : "▶"}</span>
+            {startedAt ? "Task complete" : "Task start"}
           </button>
           <div className={`live-pill ${startedAt ? "is-live" : ""}`}>
             <span aria-hidden="true" />
@@ -1063,8 +1054,7 @@ export default function Home() {
               </div>
               <p>
                 {actStarted}/{activePlan.tasks.length} started · {actEnded}/
-                {activePlan.tasks.length} ended · {tasksCompleted}/
-                {activePlan.tasks.length} complete · {classified}/
+                {activePlan.tasks.length} ended · {classified}/
                 {activePlan.tasks.length} classified
               </p>
             </div>
@@ -1088,7 +1078,6 @@ export default function Home() {
                   <div role="columnheader">AI audio</div>
                   <div role="columnheader">User act start</div>
                   <div role="columnheader">User act end</div>
-                  <div role="columnheader">Task complete</div>
                   {relianceOptions.map((option) => (
                     <div role="columnheader" key={option.key}>
                       {option.short}
@@ -1102,7 +1091,7 @@ export default function Home() {
                   return (
                     <div
                       className={`matrix-row ${
-                        state.taskCompleteAt
+                        (state.userActEndAt ?? state.finalAt)
                           ? "is-complete"
                           : ""
                       }`}
@@ -1274,31 +1263,6 @@ export default function Home() {
                           {state.userActEndAt ?? state.finalAt
                             ? formatClock(state.userActEndAt ?? state.finalAt)
                             : "Mark"}
-                        </small>
-                      </div>
-
-                      <div role="cell" className="action-cell">
-                        <button
-                          type="button"
-                          className={`circle-button task-complete-button ${
-                            state.taskCompleteAt ? "is-selected" : ""
-                          }`}
-                          onClick={() =>
-                            markTaskComplete(activePlan.id, taskNumber)
-                          }
-                          aria-label={`Mark task ${taskNumber} complete`}
-                          aria-pressed={Boolean(state.taskCompleteAt)}
-                          title="Task complete"
-                          data-testid={`${activePlan.id}-task-complete-${taskNumber}`}
-                        >
-                          <span aria-hidden="true">
-                            {state.taskCompleteAt ? "✓" : "＋"}
-                          </span>
-                        </button>
-                        <small>
-                          {state.taskCompleteAt
-                            ? formatClock(state.taskCompleteAt)
-                            : "Task complete"}
                         </small>
                       </div>
 
