@@ -111,9 +111,45 @@ h1 span {
 }
 
 .live-pill,
+.task-start-button,
 .ghost-button,
 .export-button {
   border-radius: 999px;
+}
+
+.task-start-button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 17px;
+  border: 1px solid var(--blue);
+  background: var(--blue);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.18);
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.task-start-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(59, 130, 246, 0.24);
+}
+
+.task-start-button:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.task-start-button.is-started {
+  border-color: #3d9a62;
+  background: #3d9a62;
+  box-shadow: 0 8px 20px rgba(61, 154, 98, 0.18);
+}
+
+.task-start-button.is-playing {
+  animation: audio-ring 1.1s infinite;
 }
 
 .live-pill {

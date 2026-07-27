@@ -705,6 +705,20 @@ export default function Home() {
     setStartedAt(new Date().getTime());
   };
 
+  const startTaskSession = () => {
+    audioRef.current?.pause();
+    if (audioRef.current) audioRef.current.currentTime = 0;
+
+    const audio = new Audio("/audio/session/task_start.m4a");
+    audio.preload = "auto";
+    audio.onended = () => setPlayingCue(null);
+    audio.onerror = () => setPlayingCue(null);
+    audioRef.current = audio;
+    setPlayingCue("session-start");
+    void audio.play().catch(() => setPlayingCue(null));
+    ensureStarted();
+  };
+
   const addLog = (
     planId: PlanId,
     task: number,
@@ -769,7 +783,6 @@ export default function Home() {
     void audio.play().catch(() => setPlayingCue(null));
 
     if (shouldRecord) {
-      ensureStarted();
       updateTask(planId, taskNumber, (current) => ({
         ...current,
         audioPlays: current.audioPlays + 1,
@@ -787,7 +800,6 @@ export default function Home() {
   };
 
   const markUserActStart = (planId: PlanId, taskNumber: number) => {
-    ensureStarted();
     const timestamp = new Date().toISOString();
     const elapsedAtAction = startedAt
       ? Math.max(
@@ -803,7 +815,6 @@ export default function Home() {
   };
 
   const markUserActEnd = (planId: PlanId, taskNumber: number) => {
-    ensureStarted();
     const timestamp = new Date().toISOString();
     const elapsedAtAction = startedAt
       ? Math.max(
@@ -819,7 +830,6 @@ export default function Home() {
   };
 
   const markTaskComplete = (planId: PlanId, taskNumber: number) => {
-    ensureStarted();
     const timestamp = new Date().toISOString();
     const elapsedAtAction = startedAt
       ? Math.max(
@@ -839,7 +849,6 @@ export default function Home() {
     taskNumber: number,
     reliance: Reliance,
   ) => {
-    ensureStarted();
     updateTask(planId, taskNumber, (current) => ({
       ...current,
       reliance,
@@ -938,6 +947,27 @@ export default function Home() {
           </div>
         </div>
         <div className="session-tools">
+          <button
+            type="button"
+            className={`task-start-button ${
+              playingCue === "session-start" ? "is-playing" : ""
+            } ${startedAt ? "is-started" : ""}`}
+            onClick={startTaskSession}
+            aria-label={
+              startedAt
+                ? "Replay task start audio without resetting the session timer"
+                : "Play task start audio and start the session timer"
+            }
+            title={
+              startedAt
+                ? "Replay audio — session timer will continue"
+                : "Play audio and start session timer"
+            }
+            data-testid="task-start"
+          >
+            <span aria-hidden="true">▶</span>
+            {startedAt ? "Task started" : "Task start"}
+          </button>
           <div className={`live-pill ${startedAt ? "is-live" : ""}`}>
             <span aria-hidden="true" />
             {sessionLabel}
