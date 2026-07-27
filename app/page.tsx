@@ -18,6 +18,8 @@ type TaskState = {
   userActStartElapsed?: number;
   userActEndAt?: string;
   userActEndElapsed?: number;
+  taskCompleteAt?: string;
+  taskCompleteElapsed?: number;
   // Legacy fields from the previous single "Final act" control.
   finalAt?: string;
   finalElapsed?: number;
@@ -674,12 +676,15 @@ export default function Home() {
   const actEnded = Object.values(activeState).filter(
     (item) => item.userActEndAt ?? item.finalAt,
   ).length;
+  const tasksCompleted = Object.values(activeState).filter(
+    (item) => item.taskCompleteAt,
+  ).length;
   const classified = Object.values(activeState).filter(
     (item) => item.reliance,
   ).length;
   const progress = Math.round(
-    ((actStarted + actEnded + classified) /
-      (activePlan.tasks.length * 3)) *
+    ((actStarted + actEnded + tasksCompleted + classified) /
+      (activePlan.tasks.length * 4)) *
       100,
   );
   const allTaskStates = Object.values(taskState).flatMap((state) =>
@@ -691,6 +696,7 @@ export default function Home() {
       (state) =>
         state.userActStartAt &&
         (state.userActEndAt ?? state.finalAt) &&
+        state.taskCompleteAt &&
         state.reliance,
     );
 
@@ -809,6 +815,22 @@ export default function Home() {
       ...current,
       userActEndAt: timestamp,
       userActEndElapsed: elapsedAtAction,
+    }));
+  };
+
+  const markTaskComplete = (planId: PlanId, taskNumber: number) => {
+    ensureStarted();
+    const timestamp = new Date().toISOString();
+    const elapsedAtAction = startedAt
+      ? Math.max(
+          0,
+          Math.floor((new Date().getTime() - startedAt) / 1000),
+        )
+      : 0;
+    updateTask(planId, taskNumber, (current) => ({
+      ...current,
+      taskCompleteAt: timestamp,
+      taskCompleteElapsed: elapsedAtAction,
     }));
   };
 
@@ -1011,7 +1033,8 @@ export default function Home() {
               </div>
               <p>
                 {actStarted}/{activePlan.tasks.length} started · {actEnded}/
-                {activePlan.tasks.length} ended · {classified}/
+                {activePlan.tasks.length} ended · {tasksCompleted}/
+                {activePlan.tasks.length} complete · {classified}/
                 {activePlan.tasks.length} classified
               </p>
             </div>
@@ -1035,6 +1058,7 @@ export default function Home() {
                   <div role="columnheader">AI audio</div>
                   <div role="columnheader">User act start</div>
                   <div role="columnheader">User act end</div>
+                  <div role="columnheader">Task complete</div>
                   {relianceOptions.map((option) => (
                     <div role="columnheader" key={option.key}>
                       {option.short}
@@ -1048,7 +1072,7 @@ export default function Home() {
                   return (
                     <div
                       className={`matrix-row ${
-                        (state.userActEndAt ?? state.finalAt)
+                        state.taskCompleteAt
                           ? "is-complete"
                           : ""
                       }`}
@@ -1220,6 +1244,31 @@ export default function Home() {
                           {state.userActEndAt ?? state.finalAt
                             ? formatClock(state.userActEndAt ?? state.finalAt)
                             : "Mark"}
+                        </small>
+                      </div>
+
+                      <div role="cell" className="action-cell">
+                        <button
+                          type="button"
+                          className={`circle-button task-complete-button ${
+                            state.taskCompleteAt ? "is-selected" : ""
+                          }`}
+                          onClick={() =>
+                            markTaskComplete(activePlan.id, taskNumber)
+                          }
+                          aria-label={`Mark task ${taskNumber} complete`}
+                          aria-pressed={Boolean(state.taskCompleteAt)}
+                          title="Task complete"
+                          data-testid={`${activePlan.id}-task-complete-${taskNumber}`}
+                        >
+                          <span aria-hidden="true">
+                            {state.taskCompleteAt ? "✓" : "＋"}
+                          </span>
+                        </button>
+                        <small>
+                          {state.taskCompleteAt
+                            ? formatClock(state.taskCompleteAt)
+                            : "Task complete"}
                         </small>
                       </div>
 
