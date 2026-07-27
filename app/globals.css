@@ -429,13 +429,13 @@ h2 {
 }
 
 .matrix {
-  min-width: 1230px;
+  min-width: 1340px;
 }
 
 .matrix-header,
 .matrix-row {
   display: grid;
-  grid-template-columns: minmax(530px, 2.8fr) repeat(6, minmax(102px, 0.7fr));
+  grid-template-columns: minmax(530px, 2.8fr) repeat(7, minmax(102px, 0.7fr));
   align-items: stretch;
 }
 
@@ -700,7 +700,13 @@ h2 {
   font-size: 12px;
 }
 
-.final-button.is-selected {
+.act-start-button.is-selected {
+  border-color: var(--orange);
+  background: var(--orange);
+  color: white;
+}
+
+.act-end-button.is-selected {
   border-color: var(--coral);
   background: var(--coral);
   color: white;

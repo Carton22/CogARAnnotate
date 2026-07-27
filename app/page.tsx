@@ -14,6 +14,11 @@ type CueKind = "correct" | "incorrect";
 
 type TaskState = {
   audioPlays: number;
+  userActStartAt?: string;
+  userActStartElapsed?: number;
+  userActEndAt?: string;
+  userActEndElapsed?: number;
+  // Legacy fields from the previous single "Final act" control.
   finalAt?: string;
   finalElapsed?: number;
   reliance?: Reliance;
@@ -661,21 +666,31 @@ export default function Home() {
   const elapsed = startedAt
     ? Math.max(0, Math.floor((now - startedAt) / 1000))
     : 0;
-  const completed = Object.values(activeState).filter(
-    (item) => item.finalAt,
+  const actStarted = Object.values(activeState).filter(
+    (item) => item.userActStartAt,
+  ).length;
+  const actEnded = Object.values(activeState).filter(
+    (item) => item.userActEndAt ?? item.finalAt,
   ).length;
   const classified = Object.values(activeState).filter(
     (item) => item.reliance,
   ).length;
   const progress = Math.round(
-    ((completed + classified) / (activePlan.tasks.length * 2)) * 100,
+    ((actStarted + actEnded + classified) /
+      (activePlan.tasks.length * 3)) *
+      100,
   );
   const allTaskStates = Object.values(taskState).flatMap((state) =>
     Object.values(state),
   );
   const allComplete =
     allTaskStates.length > 0 &&
-    allTaskStates.every((state) => state.finalAt && state.reliance);
+    allTaskStates.every(
+      (state) =>
+        state.userActStartAt &&
+        (state.userActEndAt ?? state.finalAt) &&
+        state.reliance,
+    );
 
   const ensureStarted = () => {
     if (startedAt) return;
@@ -763,7 +778,7 @@ export default function Home() {
     }
   };
 
-  const markFinalAct = (planId: PlanId, taskNumber: number) => {
+  const markUserActStart = (planId: PlanId, taskNumber: number) => {
     ensureStarted();
     const timestamp = new Date().toISOString();
     const elapsedAtAction = startedAt
@@ -774,8 +789,24 @@ export default function Home() {
       : 0;
     updateTask(planId, taskNumber, (current) => ({
       ...current,
-      finalAt: timestamp,
-      finalElapsed: elapsedAtAction,
+      userActStartAt: timestamp,
+      userActStartElapsed: elapsedAtAction,
+    }));
+  };
+
+  const markUserActEnd = (planId: PlanId, taskNumber: number) => {
+    ensureStarted();
+    const timestamp = new Date().toISOString();
+    const elapsedAtAction = startedAt
+      ? Math.max(
+          0,
+          Math.floor((new Date().getTime() - startedAt) / 1000),
+        )
+      : 0;
+    updateTask(planId, taskNumber, (current) => ({
+      ...current,
+      userActEndAt: timestamp,
+      userActEndElapsed: elapsedAtAction,
     }));
   };
 
@@ -977,7 +1008,8 @@ export default function Home() {
                 <span style={{ width: `${progress}%` }} />
               </div>
               <p>
-                {completed}/{activePlan.tasks.length} final acts · {classified}/
+                {actStarted}/{activePlan.tasks.length} started · {actEnded}/
+                {activePlan.tasks.length} ended · {classified}/
                 {activePlan.tasks.length} classified
               </p>
             </div>
@@ -999,7 +1031,8 @@ export default function Home() {
                     </span>
                   </div>
                   <div role="columnheader">AI audio</div>
-                  <div role="columnheader">Final act</div>
+                  <div role="columnheader">User act start</div>
+                  <div role="columnheader">User act end</div>
                   {relianceOptions.map((option) => (
                     <div role="columnheader" key={option.key}>
                       {option.short}
@@ -1013,7 +1046,9 @@ export default function Home() {
                   return (
                     <div
                       className={`matrix-row ${
-                        state.finalAt ? "is-complete" : ""
+                        (state.userActEndAt ?? state.finalAt)
+                          ? "is-complete"
+                          : ""
                       }`}
                       role="row"
                       key={`${task.name}-${taskNumber}`}
@@ -1135,24 +1170,53 @@ export default function Home() {
                       <div role="cell" className="action-cell">
                         <button
                           type="button"
-                          className={`circle-button final-button ${
-                            state.finalAt ? "is-selected" : ""
+                          className={`circle-button act-start-button ${
+                            state.userActStartAt ? "is-selected" : ""
                           }`}
                           onClick={() =>
-                            markFinalAct(activePlan.id, taskNumber)
+                            markUserActStart(activePlan.id, taskNumber)
                           }
-                          aria-label={`Mark final act timestamp for task ${taskNumber}`}
-                          aria-pressed={Boolean(state.finalAt)}
-                          title="Mark final act"
-                          data-testid={`${activePlan.id}-final-${taskNumber}`}
+                          aria-label={`Mark user act start timestamp for task ${taskNumber}`}
+                          aria-pressed={Boolean(state.userActStartAt)}
+                          title="Mark user act start"
+                          data-testid={`${activePlan.id}-act-start-${taskNumber}`}
                         >
                           <span aria-hidden="true">
-                            {state.finalAt ? "✓" : "＋"}
+                            {state.userActStartAt ? "✓" : "＋"}
                           </span>
                         </button>
                         <small>
-                          {state.finalAt
-                            ? formatClock(state.finalAt)
+                          {state.userActStartAt
+                            ? formatClock(state.userActStartAt)
+                            : "Mark"}
+                        </small>
+                      </div>
+
+                      <div role="cell" className="action-cell">
+                        <button
+                          type="button"
+                          className={`circle-button act-end-button ${
+                            state.userActEndAt ?? state.finalAt
+                              ? "is-selected"
+                              : ""
+                          }`}
+                          onClick={() =>
+                            markUserActEnd(activePlan.id, taskNumber)
+                          }
+                          aria-label={`Mark user act end timestamp for task ${taskNumber}`}
+                          aria-pressed={Boolean(
+                            state.userActEndAt ?? state.finalAt,
+                          )}
+                          title="Mark user act end"
+                          data-testid={`${activePlan.id}-act-end-${taskNumber}`}
+                        >
+                          <span aria-hidden="true">
+                            {state.userActEndAt ?? state.finalAt ? "✓" : "＋"}
+                          </span>
+                        </button>
+                        <small>
+                          {state.userActEndAt ?? state.finalAt
+                            ? formatClock(state.userActEndAt ?? state.finalAt)
                             : "Mark"}
                         </small>
                       </div>
