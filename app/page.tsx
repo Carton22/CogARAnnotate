@@ -630,7 +630,9 @@ export default function Home() {
           ...emptyTaskState(),
           ...(restored.taskState ?? {}),
         });
-        setLogs(restored.logs ?? []);
+        setLogs(
+          (restored.logs ?? []).filter((entry) => entry.action === "AI audio"),
+        );
       }
       setHydrated(true);
     });
@@ -775,12 +777,6 @@ export default function Home() {
       finalAt: timestamp,
       finalElapsed: elapsedAtAction,
     }));
-    addLog(
-      planId,
-      taskNumber,
-      "Final act",
-      `Marked at ${formatClock(timestamp)}`,
-    );
   };
 
   const markReliance = (
@@ -789,12 +785,10 @@ export default function Home() {
     reliance: Reliance,
   ) => {
     ensureStarted();
-    const option = relianceOptions.find((item) => item.key === reliance)!;
     updateTask(planId, taskNumber, (current) => ({
       ...current,
       reliance,
     }));
-    addLog(planId, taskNumber, "Reliance", option.label);
   };
 
   const goToPlan = (nextIndex: number) => {
@@ -1249,7 +1243,7 @@ export default function Home() {
         ) : (
           <div className="empty-log">
             <span aria-hidden="true">◎</span>
-            <p>Actions from both task plans will appear here with timestamps.</p>
+            <p>AI Audio plays will appear here with timestamps.</p>
           </div>
         )}
       </section>
