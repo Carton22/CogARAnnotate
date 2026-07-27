@@ -712,8 +712,11 @@ export default function Home() {
     if (isStarting) {
       setStartedAt(new Date().getTime());
       setCompletedAt(null);
-    } else if (!completedAt) {
-      setCompletedAt(new Date().getTime());
+    } else {
+      if (!completedAt) {
+        setCompletedAt(new Date().getTime());
+      }
+      exportCsv();
     }
   };
 
