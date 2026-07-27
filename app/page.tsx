@@ -220,6 +220,12 @@ const plans: Plan[] = [
             audioSrc:
               "/audio/yellow-piece-assembly/step07_alt_yellow_right.mp3",
           },
+          {
+            text: "replace the green piece slot 2 with the red piece",
+            audioSrc:
+              "/audio/yellow-piece-assembly/step07_alt_replace_green_red.mp3",
+            tone: "green",
+          },
         ],
         correctOptionsAreHints: true,
         incorrectOptions: [
@@ -238,12 +244,6 @@ const plans: Plan[] = [
             text: "Insert a black piece on the back side",
             audioSrc:
               "/audio/yellow-piece-assembly/step08_main_black_back.mp3",
-          },
-          {
-            text: "Replace the green piece at slot 2 with the red piece",
-            audioSrc:
-              "/audio/yellow-piece-assembly/step07_alt_replace_green_red.mp3",
-            tone: "green",
           },
         ],
         mainKind: "correct",
