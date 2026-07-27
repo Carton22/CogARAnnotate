@@ -9,7 +9,7 @@ import {
 } from "react";
 
 type Reliance = "app-rely" | "over-rely" | "under-rely" | "app-reject";
-type PlanId = "sandwich" | "shelf";
+type PlanId = "sandwich" | "shelf" | "boba" | "table";
 type CueKind = "correct" | "incorrect";
 
 type TaskState = {
@@ -157,7 +157,7 @@ const plans: Plan[] = [
         mainKind: "correct",
       },
       {
-        name: "Insert the bottom",
+        name: "Insert the bottom at slot 1",
         correctOptions: [
           {
             text: "Take a green piece and insert to slot 1 of the yellow piece",
@@ -168,7 +168,7 @@ const plans: Plan[] = [
         mainKind: "correct",
       },
       {
-        name: "Insert a mid-layer at slot 3",
+        name: "Insert a mid-layer at slot 2",
         correctOptions: [],
         incorrectOptions: [
           {
@@ -180,7 +180,7 @@ const plans: Plan[] = [
         mainKind: "incorrect",
       },
       {
-        name: "Insert a mid-layer at slot 2",
+        name: "Insert a mid-layer at slot 3",
         correctOptions: [
           {
             text: "Insert a green piece to slot 3 of the yellow piece",
@@ -191,7 +191,7 @@ const plans: Plan[] = [
         mainKind: "correct",
       },
       {
-        name: "Insert a mid-layer at slot 1",
+        name: "Insert a mid-layer at slot 4",
         correctOptions: [
           {
             text: "Insert a green piece to slot 4 of the yellow piece",
@@ -202,7 +202,7 @@ const plans: Plan[] = [
         mainKind: "correct",
       },
       {
-        name: "Insert a top-layer at slot 0",
+        name: "Insert a top-layer at slot 5",
         correctOptions: [
           {
             text: "Insert a red piece to slot 5 of the yellow piece",
@@ -244,6 +244,309 @@ const plans: Plan[] = [
             text: "Insert a black piece on the back side",
             audioSrc:
               "/audio/yellow-piece-assembly/step08_main_black_back.mp3",
+          },
+        ],
+        mainKind: "correct",
+      },
+    ],
+  },
+  {
+    id: "boba",
+    code: "C",
+    eyebrow: "WIZARD OF OZ · TASK C",
+    title: "Boba tea plan",
+    description:
+      "Control the ten-step strawberry matcha drink study, including alternative recovery prompts and reliance classification.",
+    tasks: [
+      {
+        name: "Take a cup",
+        correctOptions: [
+          {
+            text: "Take an empty cup and put in front of you",
+            audioSrc:
+              "/audio/strawberry-matcha-drink/step01_main_take_cup.mp3",
+          },
+        ],
+        mainKind: "correct",
+      },
+      {
+        name: "Add strawberry sugar syrup",
+        correctOptions: [
+          {
+            text: "Add strawberry sugar syrup into the cup",
+            audioSrc:
+              "/audio/strawberry-matcha-drink/step02_main_add_strawberry_syrup.mp3",
+          },
+        ],
+        mainKind: "correct",
+      },
+      {
+        name: "Add boba and coat every pearl",
+        correctOptions: [
+          {
+            text: "Add boba",
+            audioSrc:
+              "/audio/strawberry-matcha-drink/step03_alt_add_boba.mp3",
+          },
+        ],
+        correctOptionsAreHints: true,
+        incorrectOptions: [
+          {
+            text: "Add boba and a few lemon drops.",
+            audioSrc:
+              "/audio/strawberry-matcha-drink/step03_main_add_boba_lemon.mp3",
+          },
+        ],
+        mainKind: "incorrect",
+      },
+      {
+        name: "Add strawberry yogurt as a bottom layer",
+        correctOptions: [
+          {
+            text: "Add strawberry yogurt as the bottom layer",
+            audioSrc:
+              "/audio/strawberry-matcha-drink/step04_main_add_strawberry_yogurt.mp3",
+          },
+        ],
+        mainKind: "correct",
+      },
+      {
+        name: "Take a second cup",
+        correctOptions: [
+          {
+            text: "Take a second empty cup",
+            audioSrc:
+              "/audio/strawberry-matcha-drink/step05_main_take_second_cup.mp3",
+          },
+        ],
+        mainKind: "correct",
+      },
+      {
+        name: "Mix milk and coconut milk in the 2nd cup",
+        correctOptions: [
+          {
+            text: "Take a second empty cup",
+            audioSrc:
+              "/audio/strawberry-matcha-drink/step06_main_take_second_cup.mp3",
+          },
+        ],
+        mainKind: "correct",
+      },
+      {
+        name: "Pour into the first cup as the 2nd layer",
+        correctOptions: [
+          {
+            text: "Pour into the first cup as the 2nd layer",
+            audioSrc:
+              "/audio/strawberry-matcha-drink/step07_main_pour_second_layer.mp3",
+          },
+        ],
+        mainKind: "correct",
+      },
+      {
+        name: "Pour matcha cream on the top of the first cup",
+        correctOptions: [
+          {
+            text: "Pour in the matcha cream on top as 3rd layer",
+            audioSrc:
+              "/audio/strawberry-matcha-drink/step08_alt_matcha_third_layer.mp3",
+          },
+        ],
+        correctOptionsAreHints: true,
+        incorrectOptions: [
+          {
+            text: "Pour in the matcha cream and stir until evenly mixed.",
+            audioSrc:
+              "/audio/strawberry-matcha-drink/step08_main_pour_matcha_stir.mp3",
+          },
+        ],
+        mainKind: "incorrect",
+      },
+      {
+        name: "Add matcha powder on top",
+        correctOptions: [
+          {
+            text: "Add matcha powder on the top",
+            audioSrc:
+              "/audio/strawberry-matcha-drink/step09_main_add_matcha_powder.mp3",
+          },
+        ],
+        mainKind: "correct",
+      },
+      {
+        name: "Add a straw and taste",
+        correctOptions: [
+          {
+            text: "Add a straw and have a taste",
+            audioSrc:
+              "/audio/strawberry-matcha-drink/step10_main_add_straw.mp3",
+          },
+        ],
+        mainKind: "correct",
+      },
+    ],
+  },
+  {
+    id: "table",
+    code: "D",
+    eyebrow: "WIZARD OF OZ · TASK D",
+    title: "Table assembly plan",
+    description:
+      "Control the twelve-step table assembly study from the first side structure through the three box assemblies.",
+    tasks: [
+      {
+        name: "Take side 2",
+        correctOptions: [
+          {
+            text: "Take a No.3 piece",
+            audioSrc: "/audio/box-assembly/step01_main_take_no3.mp3",
+          },
+        ],
+        mainKind: "correct",
+      },
+      {
+        name: "Insert mid-layer 2 into side 2",
+        correctOptions: [
+          {
+            text: "Connect a No.4 piece with the No.3 piece",
+            audioSrc:
+              "/audio/box-assembly/step02_main_connect_no4_no3.mp3",
+          },
+        ],
+        mainKind: "correct",
+      },
+      {
+        name: "Insert side 3 between side 2 and mid-layer 2",
+        correctOptions: [
+          {
+            text: "Connect another No.3 piece with No.4 piece",
+            audioSrc:
+              "/audio/box-assembly/step03_alt_connect_another_no3_no4.mp3",
+          },
+        ],
+        correctOptionsAreHints: true,
+        incorrectOptions: [
+          {
+            text: "Connect the No.1 piece with the No.4 piece",
+            audioSrc:
+              "/audio/box-assembly/step03_main_connect_no1_no4.mp3",
+          },
+        ],
+        mainKind: "incorrect",
+      },
+      {
+        name: "Insert mid-layer 1 between sides 2 and 3",
+        correctOptions: [
+          {
+            text: "(Optional) Replace the No.1 piece with the No.3 piece",
+            audioSrc:
+              "/audio/box-assembly/step04_alt_optional_replace_no1_no3.mp3",
+          },
+          {
+            text: "Insert a No.6 piece between the 2 No.3 pieces",
+            audioSrc:
+              "/audio/box-assembly/step04_alt_insert_no6_between_no3.mp3",
+          },
+        ],
+        correctOptionsAreHints: true,
+        mainKind: "correct",
+      },
+      {
+        name: "Connect the top with sides 2 and 3",
+        correctOptions: [
+          {
+            text: "Insert the No.1 piece on top of the 2 No.3 pieces",
+            audioSrc:
+              "/audio/box-assembly/step05_main_no1_on_two_no3.mp3",
+          },
+        ],
+        mainKind: "correct",
+      },
+      {
+        name: "Connect side 1 with the top",
+        correctOptions: [
+          {
+            text: "Connect the No.1 piece and No.2 piece",
+            audioSrc:
+              "/audio/box-assembly/step06_main_connect_no1_no2.mp3",
+          },
+        ],
+        mainKind: "correct",
+      },
+      {
+        name: "Connect the (A) left, back, right, and front pieces",
+        correctOptions: [],
+        incorrectOptions: [
+          {
+            text: "Take two No.5 pieces and two No.9 pieces and connect together into a box",
+            audioSrc: "/audio/box-assembly/step07_main_box_a.mp3",
+          },
+        ],
+        mainKind: "incorrect",
+      },
+      {
+        name: "Connect the (A) bottom with the remaining parts and insert",
+        correctOptions: [
+          {
+            text: "Connect the No.7 piece with the box assembly",
+            audioSrc:
+              "/audio/box-assembly/step08_main_connect_no7_box.mp3",
+          },
+          {
+            text: "replace the No.9 with No.6 pieces and connect with No.5 pieces",
+            audioSrc:
+              "/audio/box-assembly/step08_alt_replace_no9_no6.mp3",
+            tone: "green",
+          },
+        ],
+        mainKind: "correct",
+      },
+      {
+        name: "Connect the (C) left, back, right, and front pieces",
+        correctOptions: [
+          {
+            text: "Take two No.5 pieces and two No.6 pieces and connect together into a box",
+            audioSrc: "/audio/box-assembly/step09_main_box_c.mp3",
+          },
+        ],
+        mainKind: "correct",
+      },
+      {
+        name: "Connect the (C) bottom with the remaining parts and insert",
+        correctOptions: [
+          {
+            text: "Connect the No.7 piece with the box assembly",
+            audioSrc:
+              "/audio/box-assembly/step10_main_connect_no7_box.mp3",
+          },
+        ],
+        mainKind: "correct",
+      },
+      {
+        name: "Connect the (B) left, back, right, and front pieces",
+        correctOptions: [
+          {
+            text: "replace the No.6 with No.9 pieces",
+            audioSrc:
+              "/audio/box-assembly/step11_alt_replace_no6_no9.mp3",
+          },
+        ],
+        correctOptionsAreHints: true,
+        incorrectOptions: [
+          {
+            text: "Take two No.8 pieces and two No.6 pieces and connect together into a box",
+            audioSrc: "/audio/box-assembly/step11_main_box_b.mp3",
+          },
+        ],
+        mainKind: "incorrect",
+      },
+      {
+        name: "Connect the (B) bottom with the remaining parts and insert",
+        correctOptions: [
+          {
+            text: "Connect the No.7 piece with the box assembly",
+            audioSrc:
+              "/audio/box-assembly/step12_main_connect_no7_box.mp3",
           },
         ],
         mainKind: "correct",
@@ -332,7 +635,10 @@ export default function Home() {
           Math.min(Math.max(restored.activePlanIndex ?? 0, 0), plans.length - 1),
         );
         setStartedAt(restored.startedAt ?? null);
-        setTaskState(restored.taskState ?? emptyTaskState());
+        setTaskState({
+          ...emptyTaskState(),
+          ...(restored.taskState ?? {}),
+        });
         setLogs(restored.logs ?? []);
       }
       setHydrated(true);
@@ -703,6 +1009,7 @@ export default function Home() {
                     <span>Task sequence &amp; instructions</span>
                     <span className="cue-legend">
                       <span className="legend-correct">Correct</span>
+                      <span className="legend-recovery">Recovery</span>
                       <span className="legend-incorrect">Incorrect</span>
                     </span>
                   </div>
