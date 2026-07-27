@@ -85,8 +85,9 @@ const plans: Plan[] = [
         ],
         incorrectOptions: [
           {
-            text: "Add ketchup and salt",
-            audioSrc: "/audio/sandwich/step02_main_add_ketchup_salt.mp3",
+            text: "Add ketchup and lemon pieces",
+            audioSrc:
+              "/audio/sandwich/step02_main_add_ketchup_lemon_pieces.wav",
           },
         ],
         mainKind: "incorrect",
@@ -121,8 +122,9 @@ const plans: Plan[] = [
         ],
         incorrectOptions: [
           {
-            text: "Put celery into this",
-            audioSrc: "/audio/sandwich/step05_main_put_celery.mp3",
+            text: "Put celery into this and add bread",
+            audioSrc:
+              "/audio/sandwich/step05_main_put_celery_add_bread.wav",
           },
         ],
         mainKind: "incorrect",
@@ -292,9 +294,9 @@ const plans: Plan[] = [
         ],
         incorrectOptions: [
           {
-            text: "Add boba and a few lemon drops.",
+            text: "Add boba and a few peppers",
             audioSrc:
-              "/audio/strawberry-matcha-drink/step03_main_add_boba_lemon.mp3",
+              "/audio/strawberry-matcha-drink/step03_main_add_boba_peppers.wav",
           },
         ],
         mainKind: "incorrect",
