@@ -615,7 +615,8 @@ h2 {
     0 5px 12px rgba(59, 130, 246, 0.14);
 }
 
-.cue-green {
+.cue-button.cue-green,
+.cue-correct.is-hint-only.cue-green {
   background: #3d9a62;
   box-shadow: 0 5px 12px rgba(61, 154, 98, 0.18);
 }
