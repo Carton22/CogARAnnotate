@@ -324,12 +324,12 @@ const plans: Plan[] = [
         mainKind: "correct",
       },
       {
-        name: "Mix milk and coconut milk in the 2nd cup",
+        name: "Mix matcha latte and coconut milk in the 2nd cup",
         correctOptions: [
           {
-            text: "Take a second empty cup",
+            text: "Mix matcha latte and coconut milk in the 2nd cup",
             audioSrc:
-              "/audio/strawberry-matcha-drink/step06_main_take_second_cup.mp3",
+              "/audio/strawberry-matcha-drink/step06_mix_matcha_latte_coconut_milk.wav",
           },
         ],
         mainKind: "correct",
