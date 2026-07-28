@@ -351,7 +351,7 @@ const plans: Plan[] = [
           {
             text: "Pour in the matcha cream on top as 3rd layer",
             audioSrc:
-              "/audio/strawberry-matcha-drink/step08_alt_matcha_third_layer.mp3",
+              "/audio/strawberry-matcha-drink/step08_alt_matcha_third_layer.wav",
           },
         ],
         incorrectOptions: [
