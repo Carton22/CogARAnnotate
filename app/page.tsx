@@ -699,8 +699,8 @@ export default function Home() {
     const isStarting = !startedAt;
     const audio = new Audio(
       isStarting
-        ? "/audio/session/task_start.m4a"
-        : "/audio/session/task_complete.m4a",
+        ? "/audio/session/task_begin.wav"
+        : "/audio/session/task_completed.wav",
     );
     audio.preload = "auto";
     audio.onended = () => setPlayingCue(null);
