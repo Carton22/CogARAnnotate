@@ -358,7 +358,7 @@ const plans: Plan[] = [
           {
             text: "Pour in the matcha cream and stir until evenly mixed.",
             audioSrc:
-              "/audio/strawberry-matcha-drink/step08_main_pour_matcha_stir.mp3",
+              "/audio/strawberry-matcha-drink/step08_main_pour_matcha_stir.wav",
           },
         ],
         mainKind: "incorrect",
