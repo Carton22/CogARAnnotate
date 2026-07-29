@@ -189,7 +189,7 @@ const plans: Plan[] = [
         name: "Insert a mid-layer at slot 3",
         correctOptions: [
           {
-            text: "Insert a green piece to slot 3 of the yellow piece",
+            text: "Insert a pink piece to slot 3 of the yellow piece",
             audioSrc:
               "/audio/yellow-piece-assembly/step04_main_green_slot3.mp3",
           },
@@ -200,7 +200,7 @@ const plans: Plan[] = [
         name: "Insert a mid-layer at slot 4",
         correctOptions: [
           {
-            text: "Insert a green piece to slot 4 of the yellow piece",
+            text: "Insert a pink piece to slot 4 of the yellow piece",
             audioSrc:
               "/audio/yellow-piece-assembly/step05_main_green_slot4.mp3",
           },
@@ -211,7 +211,7 @@ const plans: Plan[] = [
         name: "Insert a top-layer at slot 5",
         correctOptions: [
           {
-            text: "Insert a red piece to slot 5 of the yellow piece",
+            text: "Insert a pink piece to slot 5 of the yellow piece",
             audioSrc:
               "/audio/yellow-piece-assembly/step06_main_red_slot5.mp3",
           },
@@ -227,7 +227,7 @@ const plans: Plan[] = [
               "/audio/yellow-piece-assembly/step07_alt_yellow_right.mp3",
           },
           {
-            text: "replace the green piece slot 2 with the red piece",
+            text: "replace the green piece slot 2 with the pink piece",
             audioSrc:
               "/audio/yellow-piece-assembly/step07_alt_replace_green_red.mp3",
             tone: "green",
@@ -235,7 +235,7 @@ const plans: Plan[] = [
         ],
         incorrectOptions: [
           {
-            text: "Insert a black piece (back) on the right side",
+            text: "Insert a blue piece (back) on the right side",
             audioSrc:
               "/audio/yellow-piece-assembly/step07_main_black_back_right.mp3",
           },
@@ -246,7 +246,7 @@ const plans: Plan[] = [
         name: "Insert the back",
         correctOptions: [
           {
-            text: "Insert a black piece on the back side",
+            text: "Insert a blue piece on the back side",
             audioSrc:
               "/audio/yellow-piece-assembly/step08_main_black_back.mp3",
           },
