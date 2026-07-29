@@ -349,7 +349,7 @@ const plans: Plan[] = [
         name: "Pour cream on the top of the first cup",
         correctOptions: [
           {
-            text: "Pour cream on the top of the first cup",
+            text: "Pour in the cream on top as 3rd layer",
             audioSrc:
               "/audio/strawberry-matcha-drink/step08_alt_matcha_third_layer.wav",
           },
