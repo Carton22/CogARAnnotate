@@ -56,6 +56,8 @@ type Plan = {
   tasks: Task[];
 };
 
+const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 const plans: Plan[] = [
   {
     id: "sandwich",
@@ -698,9 +700,11 @@ export default function Home() {
 
     const isStarting = !startedAt;
     const audio = new Audio(
-      isStarting
-        ? "/audio/session/task_begin.wav"
-        : "/audio/session/task_completed.wav",
+      `${PUBLIC_BASE_PATH}${
+        isStarting
+          ? "/audio/session/task_begin.wav"
+          : "/audio/session/task_completed.wav"
+      }`,
     );
     audio.preload = "auto";
     audio.onended = () => setPlayingCue(null);
@@ -775,7 +779,7 @@ export default function Home() {
     audioRef.current?.pause();
     if (audioRef.current) audioRef.current.currentTime = 0;
 
-    const audio = new Audio(option.audioSrc);
+    const audio = new Audio(`${PUBLIC_BASE_PATH}${option.audioSrc}`);
     audio.preload = "auto";
     audio.onended = () => setPlayingCue(null);
     audio.onerror = () => setPlayingCue(null);
