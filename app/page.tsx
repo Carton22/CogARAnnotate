@@ -25,6 +25,7 @@ import {
 import { plans, type PlanId } from "./task-plans";
 
 const STORAGE_KEY = "cogar-annotation-console-v1";
+const SESSIONS_ENDPOINT = process.env.NEXT_PUBLIC_COGAR_SESSIONS_ENDPOINT ?? "";
 
 const relianceTypes: { value: RelianceType; label: string; short: string }[] = [
   {
@@ -235,11 +236,21 @@ export default function Home() {
     setStatusMessage("Querying processed Project Aria sessions...");
 
     try {
+      if (!SESSIONS_ENDPOINT) {
+        setSessions([]);
+        selectSession(null);
+        setQueryStatus("empty");
+        setStatusMessage(
+          "No backend endpoint is configured for this static deployment. Upload an RGB view video instead.",
+        );
+        return;
+      }
+
       const params = new URLSearchParams({
         participantId: participantId.trim(),
         taskPlanId: activePlan.id,
       });
-      const response = await fetch(`/api/sessions?${params.toString()}`);
+      const response = await fetch(`${SESSIONS_ENDPOINT}?${params.toString()}`);
       if (!response.ok) {
         throw new Error(`Session query failed with ${response.status}`);
       }

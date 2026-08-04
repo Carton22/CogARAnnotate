@@ -1,4 +1,4 @@
-name: Deploy CogAR to GitHub Pages
+name: Deploy CogAR Annotate to GitHub Pages
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAGES: "true"
-      NEXT_PUBLIC_BASE_PATH: /CogARReliance
+      NEXT_PUBLIC_BASE_PATH: /CogARAnnotate
       NEXT_PUBLIC_SITE_ORIGIN: https://carton22.github.io
     steps:
       - name: Check out repository

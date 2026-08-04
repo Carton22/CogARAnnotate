@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const isGitHubPages = process.env.GITHUB_PAGES === "true";
-const repositoryBasePath = isGitHubPages ? "/CogARReliance" : "";
+const repositoryBasePath = isGitHubPages ? "/CogARAnnotate" : "";
 
 const nextConfig: NextConfig = {
   output: isGitHubPages ? "export" : undefined,
