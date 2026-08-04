@@ -33,6 +33,8 @@ test("server-renders the CogAR annotation console shell", async () => {
   assert.match(html, /Cog<span>AR<\/span>/);
   assert.match(html, /Annotation Console/);
   assert.match(html, /Session loader/);
+  assert.match(html, /Backend endpoint/);
+  assert.match(html, /http:\/\/localhost:8765\/api\/sessions/);
   assert.match(html, /RGB VIEW/);
   assert.match(html, /Step annotations/);
   assert.match(html, /Export CSV/);

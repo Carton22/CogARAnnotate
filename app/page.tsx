@@ -26,7 +26,9 @@ import {
 import { plans, type PlanId } from "./task-plans";
 
 const STORAGE_KEY = "cogar-annotation-console-v1";
-const SESSIONS_ENDPOINT = process.env.NEXT_PUBLIC_COGAR_SESSIONS_ENDPOINT ?? "";
+const DEFAULT_SESSIONS_ENDPOINT =
+  process.env.NEXT_PUBLIC_COGAR_SESSIONS_ENDPOINT ??
+  "http://localhost:8765/api/sessions";
 
 const relianceTypes: { value: RelianceType; label: string; short: string }[] = [
   {
@@ -69,6 +71,7 @@ const cognitiveStates: { value: CognitiveState; label: string }[] = [
 type SavedState = {
   activePlanId: PlanId;
   participantId: string;
+  backendEndpoint?: string;
   sessions: RecordingSession[];
   selectedSession?: RecordingSession;
   annotationsBySession: Record<string, Record<number, StepAnnotation>>;
@@ -90,6 +93,7 @@ function nowIso() {
 export default function Home() {
   const [activePlanId, setActivePlanId] = useState<PlanId>("sandwich");
   const [participantId, setParticipantId] = useState("P01");
+  const [backendEndpoint, setBackendEndpoint] = useState(DEFAULT_SESSIONS_ENDPOINT);
   const [queryStatus, setQueryStatus] = useState<
     "idle" | "loading" | "empty" | "error" | "ready"
   >("idle");
@@ -150,6 +154,7 @@ export default function Home() {
               : null;
           setActivePlanId(parsed.activePlanId ?? "sandwich");
           setParticipantId(parsed.participantId ?? "P01");
+          setBackendEndpoint(parsed.backendEndpoint ?? DEFAULT_SESSIONS_ENDPOINT);
           setSessions(restoredSessions);
           setSelectedSession(restoredSelected);
           setAnnotationsBySession(parsed.annotationsBySession ?? {});
@@ -187,6 +192,7 @@ export default function Home() {
       JSON.stringify({
         activePlanId,
         participantId,
+        backendEndpoint,
         sessions: sessions.filter((session) => session.source === "backend"),
         selectedSession:
           selectedSession?.source === "backend" ? selectedSession : undefined,
@@ -196,6 +202,7 @@ export default function Home() {
   }, [
     activePlanId,
     annotationsBySession,
+    backendEndpoint,
     hydrated,
     participantId,
     selectedSession,
@@ -265,7 +272,7 @@ export default function Home() {
     setStatusMessage("Querying processed Project Aria sessions...");
 
     try {
-      if (!SESSIONS_ENDPOINT) {
+      if (!backendEndpoint.trim()) {
         const draft = createDraftSession({
           participantId: participantId.trim(),
           taskPlanId: activePlan.id,
@@ -283,7 +290,9 @@ export default function Home() {
         participantId: participantId.trim(),
         taskPlanId: activePlan.id,
       });
-      const response = await fetch(`${SESSIONS_ENDPOINT}?${params.toString()}`);
+      const endpoint = backendEndpoint.trim().replace(/\?$/, "");
+      const separator = endpoint.includes("?") ? "&" : "?";
+      const response = await fetch(`${endpoint}${separator}${params.toString()}`);
       if (!response.ok) {
         throw new Error(`Session query failed with ${response.status}`);
       }
@@ -526,6 +535,14 @@ export default function Home() {
                 </option>
               ))}
             </select>
+          </label>
+          <label className="backend-endpoint-field">
+            <span>Backend endpoint</span>
+            <input
+              value={backendEndpoint}
+              onChange={(event) => setBackendEndpoint(event.target.value)}
+              placeholder="http://localhost:8765/api/sessions"
+            />
           </label>
           <button
             type="button"

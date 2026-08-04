@@ -434,6 +434,14 @@ h3 {
   text-transform: uppercase;
 }
 
+.loader-fields .backend-endpoint-field {
+  flex: 1 1 360px;
+}
+
+.backend-endpoint-field input {
+  width: 100%;
+}
+
 .loader-fields input,
 .loader-fields select,
 .state-select select,
