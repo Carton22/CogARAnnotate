@@ -10,6 +10,7 @@ import {
 import {
   buildCsv,
   buildExportRows,
+  createDraftSession,
   createEmptyAnnotations,
   createUploadSession,
   formatTimecode,
@@ -132,6 +133,7 @@ export default function Home() {
   const exportRows = selectedSession
     ? buildExportRows(annotationRows, selectedSession)
     : [];
+  const hasVideo = Boolean(selectedSession?.rgbVideoUrl);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -160,6 +162,25 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (!hydrated || selectedSession) return;
+
+    queueMicrotask(() => {
+      const draft = createDraftSession({
+        participantId: participantId.trim() || "P01",
+        taskPlanId: activePlan.id,
+      });
+      setSelectedSession(draft);
+      setCurrentSeconds(0);
+      setDurationSeconds(0);
+      setAnnotationsBySession((current) => ({
+        ...current,
+        [draft.id]: current[draft.id] ?? createEmptyAnnotations(draft, activePlan),
+      }));
+      setStatusMessage("Local annotation draft ready. Upload RGB to use video timestamps.");
+    });
+  }, [activePlan, hydrated, participantId, selectedSession]);
+
+  useEffect(() => {
     if (!hydrated) return;
     window.localStorage.setItem(
       STORAGE_KEY,
@@ -182,12 +203,20 @@ export default function Home() {
   ]);
 
   const selectPlan = (planId: PlanId) => {
+    const nextPlan = plans.find((plan) => plan.id === planId) ?? plans[0];
+    const draft = createDraftSession({
+      participantId: participantId.trim() || "P01",
+      taskPlanId: nextPlan.id,
+    });
     setActivePlanId(planId);
     setQueryStatus("idle");
-    setStatusMessage("Ready to load sessions.");
-    setSelectedSession(null);
+    setStatusMessage("Local annotation draft ready. Upload RGB to use video timestamps.");
+    setSelectedSession(draft);
     setSessions([]);
-    setAnnotationsBySession({});
+    setAnnotationsBySession((current) => ({
+      ...current,
+      [draft.id]: current[draft.id] ?? createEmptyAnnotations(draft, nextPlan),
+    }));
     setCurrentSeconds(0);
     setDurationSeconds(0);
   };
@@ -237,11 +266,15 @@ export default function Home() {
 
     try {
       if (!SESSIONS_ENDPOINT) {
+        const draft = createDraftSession({
+          participantId: participantId.trim(),
+          taskPlanId: activePlan.id,
+        });
         setSessions([]);
-        selectSession(null);
+        selectSession(draft);
         setQueryStatus("empty");
         setStatusMessage(
-          "No backend endpoint is configured for this static deployment. Upload an RGB view video instead.",
+          "No backend endpoint is configured. Continue annotating locally or upload an RGB view video.",
         );
         return;
       }
@@ -257,13 +290,17 @@ export default function Home() {
       const normalized = normalizeSessionResponse(await response.json()).filter(
         (session) => session.taskPlanId === activePlan.id,
       );
+      const fallbackDraft = createDraftSession({
+        participantId: participantId.trim(),
+        taskPlanId: activePlan.id,
+      });
       setSessions(normalized);
-      selectSession(normalized[0] ?? null);
+      selectSession(normalized[0] ?? fallbackDraft);
       setQueryStatus(normalized.length > 0 ? "ready" : "empty");
       setStatusMessage(
         normalized.length > 0
           ? `${normalized.length} processed session${normalized.length === 1 ? "" : "s"} found.`
-          : "No processed sessions found. Upload an RGB view video instead.",
+          : "No processed sessions found. Continue annotating locally or upload an RGB view video.",
       );
     } catch (error) {
       setQueryStatus("error");
@@ -273,7 +310,12 @@ export default function Home() {
           : "Session query failed. Upload remains available.",
       );
       setSessions([]);
-      selectSession(null);
+      selectSession(
+        createDraftSession({
+          participantId: participantId.trim() || "P01",
+          taskPlanId: activePlan.id,
+        }),
+      );
     }
   };
 
@@ -457,7 +499,7 @@ export default function Home() {
           </div>
           <p>
             {completeCount}/{activePlan.tasks.length} complete ·{" "}
-            {selectedSession ? selectedSession.id : "no session selected"}
+            {selectedSession ? selectedSession.id : "draft pending"}
           </p>
         </div>
       </section>
@@ -538,11 +580,11 @@ export default function Home() {
             <strong>{formatTimecode(durationSeconds || currentSeconds)}</strong>
           </div>
           <div className="video-frame">
-            {selectedSession ? (
+            {hasVideo ? (
               <video
                 controls
                 ref={videoRef}
-                src={selectedSession.rgbVideoUrl}
+                src={selectedSession?.rgbVideoUrl}
                 onTimeUpdate={(event) =>
                   setCurrentSeconds(event.currentTarget.currentTime)
                 }
@@ -554,7 +596,7 @@ export default function Home() {
             ) : (
               <div className="video-empty">
                 <span aria-hidden="true">▶</span>
-                <p>Load a processed Project Aria RGB recording.</p>
+                <p>Annotate now, or upload a Project Aria RGB recording for video timestamps.</p>
               </div>
             )}
           </div>
@@ -618,7 +660,6 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => markStart(annotation.stepNumber)}
-                      disabled={!selectedSession}
                     >
                       Mark start
                     </button>
@@ -626,7 +667,6 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => markEnd(annotation.stepNumber)}
-                      disabled={!selectedSession}
                     >
                       Mark end
                     </button>
@@ -641,7 +681,6 @@ export default function Home() {
                       step={1}
                       type="range"
                       value={annotation.relianceAmount ?? 0}
-                      disabled={!selectedSession}
                       onChange={(event) =>
                         updateAnnotation(annotation.stepNumber, (current) => ({
                           ...current,
@@ -662,7 +701,6 @@ export default function Home() {
                             : ""
                         }
                         title={item.label}
-                        disabled={!selectedSession}
                         onClick={() =>
                           updateAnnotation(annotation.stepNumber, (current) => ({
                             ...current,
@@ -685,7 +723,6 @@ export default function Home() {
                       step={1}
                       type="range"
                       value={annotation.confidence ?? 0}
-                      disabled={!selectedSession}
                       onChange={(event) =>
                         updateAnnotation(annotation.stepNumber, (current) => ({
                           ...current,
@@ -700,7 +737,6 @@ export default function Home() {
                     <span>Cognitive state</span>
                     <select
                       value={annotation.cognitiveState ?? ""}
-                      disabled={!selectedSession}
                       onChange={(event) =>
                         updateAnnotation(annotation.stepNumber, (current) => ({
                           ...current,
@@ -722,7 +758,6 @@ export default function Home() {
                     <span>Notes</span>
                     <textarea
                       value={annotation.notes ?? ""}
-                      disabled={!selectedSession}
                       onChange={(event) =>
                         updateAnnotation(annotation.stepNumber, (current) => ({
                           ...current,

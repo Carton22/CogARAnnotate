@@ -50,6 +50,20 @@ test("creates browser-local upload sessions", () => {
   assert.equal(upload.taskPlanId, "boba");
 });
 
+test("creates local draft sessions for annotation before video upload", () => {
+  const draft = model.createDraftSession({
+    participantId: "P03",
+    taskPlanId: "table",
+  });
+
+  assert.equal(draft.source, "draft");
+  assert.equal(draft.id, "draft-P03-table");
+  assert.equal(draft.participantId, "P03");
+  assert.equal(draft.taskPlanId, "table");
+  assert.equal(draft.rgbVideoUrl, "");
+  assert.equal(draft.sourceVrsName, "No RGB recording loaded");
+});
+
 test("detects complete step annotations and validates end time", () => {
   const completeAnnotation = {
     sessionId: "s1",

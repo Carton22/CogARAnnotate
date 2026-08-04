@@ -31,12 +31,17 @@ export type RecordingSession = {
   rgbVideoUrl: string;
   durationSeconds?: number;
   quality?: SessionQuality;
-  source: "backend" | "manual-upload";
+  source: "backend" | "manual-upload" | "draft";
 };
 
 export type UploadSessionInput = {
   fileName: string;
   objectUrl: string;
+  participantId: string;
+  taskPlanId: PlanId;
+};
+
+export type DraftSessionInput = {
   participantId: string;
   taskPlanId: PlanId;
 };
@@ -163,6 +168,18 @@ export function createUploadSession(
     sourceVrsName: input.fileName,
     rgbVideoUrl: input.objectUrl,
     source: "manual-upload",
+  };
+}
+
+export function createDraftSession(input: DraftSessionInput): RecordingSession {
+  return {
+    id: `draft-${input.participantId}-${input.taskPlanId}`,
+    participantId: input.participantId,
+    taskPlanId: input.taskPlanId,
+    recordedAt: new Date().toISOString(),
+    sourceVrsName: "No RGB recording loaded",
+    rgbVideoUrl: "",
+    source: "draft",
   };
 }
 
