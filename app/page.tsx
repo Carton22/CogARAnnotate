@@ -233,6 +233,27 @@ export default function Home() {
     setDurationSeconds(0);
   };
 
+  const selectParticipant = (nextParticipantId: string) => {
+    if (nextParticipantId === participantId) return;
+    const draft = createDraftSession({
+      participantId: nextParticipantId,
+      taskPlanId: activePlanId,
+    });
+    setParticipantId(nextParticipantId);
+    setSessions([]);
+    setDeviceSessions([]);
+    setSelectedDeviceSession(null);
+    setSelectedSession(draft);
+    setCurrentSeconds(0);
+    setDurationSeconds(0);
+    setQueryStatus("idle");
+    setStatusMessage("Participant changed. A matching annotation draft is ready.");
+    setAnnotationsBySession((current) => ({
+      ...current,
+      [draft.id]: current[draft.id] ?? createEmptyAnnotations(draft, planForParticipant(activePlanId, nextParticipantId)),
+    }));
+  };
+
   const selectSession = (session: RecordingSession | null) => {
     setSelectedSession(session);
     setCurrentSeconds(0);
@@ -542,11 +563,12 @@ export default function Home() {
         <div className="loader-fields">
           <label>
             <span>Participant ID</span>
-            <input
-              value={participantId}
-              onChange={(event) => setParticipantId(event.target.value)}
-              placeholder="P01"
-            />
+            <select value={participantId} onChange={(event) => selectParticipant(event.target.value)}>
+              {Array.from({ length: 36 }, (_, index) => {
+                const id = `P${String(index + 1).padStart(2, "0")}`;
+                return <option value={id} key={id}>Participant {String(index + 1).padStart(2, "0")}</option>;
+              })}
+            </select>
           </label>
           <label>
             <span>Task plan</span>
