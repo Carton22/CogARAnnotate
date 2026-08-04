@@ -20,8 +20,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GITHUB_PAGES: "true"
-      NEXT_PUBLIC_BASE_PATH: /AriaProReliance
-      NEXT_PUBLIC_SITE_ORIGIN: https://rain-cn995.github.io
+      NEXT_PUBLIC_BASE_PATH: /CogARReliance
+      NEXT_PUBLIC_SITE_ORIGIN: https://carton22.github.io
     steps:
       - name: Check out repository
         uses: actions/checkout@v4

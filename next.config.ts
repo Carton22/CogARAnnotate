@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const isGitHubPages = process.env.GITHUB_PAGES === "true";
-const repositoryBasePath = isGitHubPages ? "/AriaProReliance" : "";
+const repositoryBasePath = isGitHubPages ? "/CogARReliance" : "";
 
 const nextConfig: NextConfig = {
   output: isGitHubPages ? "export" : undefined,
