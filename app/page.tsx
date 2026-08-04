@@ -1,658 +1,161 @@
 "use client";
 
 import {
-  type TouchEvent,
+  type ChangeEvent,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import {
+  buildCsv,
+  buildExportRows,
+  createEmptyAnnotations,
+  createUploadSession,
+  formatTimecode,
+  isStepComplete,
+  normalizeSessionResponse,
+  setStepEnd,
+  setStepStart,
+  type CognitiveState,
+  type RecordingSession,
+  type RelianceType,
+  type StepAnnotation,
+} from "./annotation-model";
+import { plans, type PlanId } from "./task-plans";
 
-type Reliance = "app-rely" | "over-rely" | "under-rely" | "app-reject";
-type PlanId = "sandwich" | "shelf" | "boba" | "table";
-type CueKind = "correct" | "incorrect";
+const STORAGE_KEY = "cogar-annotation-console-v1";
 
-type TaskState = {
-  audioPlays: number;
-  userActStartAt?: string;
-  userActStartElapsed?: number;
-  userActEndAt?: string;
-  userActEndElapsed?: number;
-  // Legacy fields from the previous single "Final act" control.
-  finalAt?: string;
-  finalElapsed?: number;
-  reliance?: Reliance;
-};
-
-type LogEntry = {
-  id: string;
-  planId: PlanId;
-  task: number;
-  action: string;
-  detail: string;
-  timestamp: string;
-  elapsed: number;
-};
-
-type InstructionOption = {
-  audioSrc: string;
-  text: string;
-  tone?: "blue" | "green";
-};
-
-type Task = {
-  name: string;
-  correctOptions: InstructionOption[];
-  incorrectOptions?: InstructionOption[];
-  mainKind: CueKind;
-};
-
-type Plan = {
-  id: PlanId;
-  code: string;
-  eyebrow: string;
-  title: string;
-  description: string;
-  tasks: Task[];
-};
-
-const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-
-const plans: Plan[] = [
+const relianceTypes: { value: RelianceType; label: string; short: string }[] = [
   {
-    id: "sandwich",
-    code: "A",
-    eyebrow: "WIZARD OF OZ · TASK A",
-    title: "Sandwich plan",
-    description:
-      "Choose a blue alternative correct option or a red incorrect instruction, mark the participant's final act, then classify their reliance.",
-    tasks: [
-      {
-        name: "Bread",
-        correctOptions: [
-          {
-            text: "Take a piece of bread and put in a plate.",
-            audioSrc: "/audio/sandwich/step01_main_take_bread.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Ketchup",
-        correctOptions: [
-          {
-            text: "Add ketchup",
-            audioSrc: "/audio/sandwich/step02_alt_add_ketchup.mp3",
-          },
-        ],
-        incorrectOptions: [
-          {
-            text: "Add ketchup and lemon pieces",
-            audioSrc:
-              "/audio/sandwich/step02_main_add_ketchup_lemon_pieces.wav",
-          },
-        ],
-        mainKind: "incorrect",
-      },
-      {
-        name: "Cheese",
-        correctOptions: [
-          {
-            text: "Add a piece of cheese.",
-            audioSrc: "/audio/sandwich/step03_main_add_cheese.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Ham",
-        correctOptions: [
-          {
-            text: "Add a piece of ham.",
-            audioSrc: "/audio/sandwich/step04_main_add_ham.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Bread",
-        correctOptions: [
-          {
-            text: "Add bread",
-            audioSrc: "/audio/sandwich/step05_alt_add_bread.mp3",
-          },
-        ],
-        incorrectOptions: [
-          {
-            text: "Put celery into this and add bread",
-            audioSrc:
-              "/audio/sandwich/step05_main_put_celery_add_bread.wav",
-          },
-        ],
-        mainKind: "incorrect",
-      },
-      {
-        name: "Microwave",
-        correctOptions: [
-          {
-            text: "Put into microwave.",
-            audioSrc: "/audio/sandwich/step06_main_put_microwave.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-    ],
+    value: "appropriate-reliance",
+    label: "Appropriate Reliance",
+    short: "App Rely",
   },
   {
-    id: "shelf",
-    code: "B",
-    eyebrow: "WIZARD OF OZ · TASK B",
-    title: "Shelf assembly plan",
-    description:
-      "Guide the eight-step yellow-piece assembly, mark the final act, and classify the participant's reliance at each step.",
-    tasks: [
-      {
-        name: "Take the yellow labeled piece (left side)",
-        correctOptions: [
-          {
-            text: "Take a yellow piece",
-            audioSrc:
-              "/audio/yellow-piece-assembly/step01_main_take_yellow_piece.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Insert the bottom at slot 1",
-        correctOptions: [
-          {
-            text: "Take a green piece and insert to slot 1 of the yellow piece",
-            audioSrc:
-              "/audio/yellow-piece-assembly/step02_main_green_slot1.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Insert a mid-layer at slot 2",
-        correctOptions: [],
-        incorrectOptions: [
-          {
-            text: "Insert a green piece into slot 2",
-            audioSrc:
-              "/audio/yellow-piece-assembly/step03_main_green_slot2.mp3",
-          },
-        ],
-        mainKind: "incorrect",
-      },
-      {
-        name: "Insert a mid-layer at slot 3",
-        correctOptions: [
-          {
-            text: "Insert a pink piece to slot 3 of the yellow piece",
-            audioSrc:
-              "/audio/yellow-piece-assembly/step04_main_green_slot3.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Insert a mid-layer at slot 4",
-        correctOptions: [
-          {
-            text: "Insert a pink piece to slot 4 of the yellow piece",
-            audioSrc:
-              "/audio/yellow-piece-assembly/step05_main_green_slot4.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Insert a top-layer at slot 5",
-        correctOptions: [
-          {
-            text: "Insert a pink piece to slot 5 of the yellow piece",
-            audioSrc:
-              "/audio/yellow-piece-assembly/step06_main_red_slot5.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Insert right-layer at the right side",
-        correctOptions: [
-          {
-            text: "Insert a yellow piece on the right side",
-            audioSrc:
-              "/audio/yellow-piece-assembly/step07_alt_yellow_right.mp3",
-          },
-          {
-            text: "replace the green piece slot 2 with the pink piece",
-            audioSrc:
-              "/audio/yellow-piece-assembly/step07_alt_replace_green_red.mp3",
-            tone: "green",
-          },
-        ],
-        incorrectOptions: [
-          {
-            text: "Insert a blue piece (back) on the right side",
-            audioSrc:
-              "/audio/yellow-piece-assembly/step07_main_black_back_right.mp3",
-          },
-        ],
-        mainKind: "incorrect",
-      },
-      {
-        name: "Insert the back",
-        correctOptions: [
-          {
-            text: "Insert a blue piece on the back side",
-            audioSrc:
-              "/audio/yellow-piece-assembly/step08_main_black_back.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-    ],
+    value: "appropriate-rejection",
+    label: "Appropriate Rejection",
+    short: "App Reject",
+  },
+  { value: "overreliance", label: "Overreliance", short: "Over" },
+  { value: "under-reliance", label: "Under reliance", short: "Under" },
+];
+
+const cognitiveStates: { value: CognitiveState; label: string }[] = [
+  {
+    value: "thinking-verifying-suggestion",
+    label: "Thinking/Verifying Suggestion",
   },
   {
-    id: "boba",
-    code: "C",
-    eyebrow: "WIZARD OF OZ · TASK C",
-    title: "Boba tea plan",
-    description:
-      "Control the ten-step strawberry matcha drink study, including alternative recovery prompts and reliance classification.",
-    tasks: [
-      {
-        name: "Take a cup",
-        correctOptions: [
-          {
-            text: "Take an empty cup and put in front of you",
-            audioSrc:
-              "/audio/strawberry-matcha-drink/step01_main_take_cup.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Add strawberry sugar syrup",
-        correctOptions: [
-          {
-            text: "Add strawberry sugar syrup into the cup",
-            audioSrc:
-              "/audio/strawberry-matcha-drink/step02_main_add_strawberry_syrup.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Add boba and coat every pearl",
-        correctOptions: [
-          {
-            text: "Add boba",
-            audioSrc:
-              "/audio/strawberry-matcha-drink/step03_alt_add_boba.mp3",
-          },
-        ],
-        incorrectOptions: [
-          {
-            text: "Add boba and a few peppers",
-            audioSrc:
-              "/audio/strawberry-matcha-drink/step03_main_add_boba_peppers.wav",
-          },
-        ],
-        mainKind: "incorrect",
-      },
-      {
-        name: "Add strawberry yogurt as a bottom layer",
-        correctOptions: [
-          {
-            text: "Add strawberry yogurt as the bottom layer",
-            audioSrc:
-              "/audio/strawberry-matcha-drink/step04_main_add_strawberry_yogurt.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Take a second cup",
-        correctOptions: [
-          {
-            text: "Take a second empty cup",
-            audioSrc:
-              "/audio/strawberry-matcha-drink/step05_main_take_second_cup.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Mix matcha latte and coconut milk in the 2nd cup",
-        correctOptions: [
-          {
-            text: "Mix matcha latte and coconut milk in the 2nd cup",
-            audioSrc:
-              "/audio/strawberry-matcha-drink/step06_mix_matcha_latte_coconut_milk.wav",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Pour into the first cup as the 2nd layer",
-        correctOptions: [
-          {
-            text: "Pour into the first cup as the 2nd layer",
-            audioSrc:
-              "/audio/strawberry-matcha-drink/step07_main_pour_second_layer.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Pour cream on the top of the first cup",
-        correctOptions: [
-          {
-            text: "Pour in the cream on top as 3rd layer",
-            audioSrc:
-              "/audio/strawberry-matcha-drink/step08_alt_matcha_third_layer.wav",
-          },
-        ],
-        incorrectOptions: [
-          {
-            text: "Pour in the matcha cream and stir until evenly mixed.",
-            audioSrc:
-              "/audio/strawberry-matcha-drink/step08_main_pour_matcha_stir.wav",
-          },
-        ],
-        mainKind: "incorrect",
-      },
-      {
-        name: "Add matcha powder on top",
-        correctOptions: [
-          {
-            text: "Add matcha powder on the top",
-            audioSrc:
-              "/audio/strawberry-matcha-drink/step09_main_add_matcha_powder.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Add a straw and taste",
-        correctOptions: [
-          {
-            text: "Add a straw and have a taste",
-            audioSrc:
-              "/audio/strawberry-matcha-drink/step10_main_add_straw.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-    ],
+    value: "deferring-thinking-for-later",
+    label: "Deferring Thinking for Later",
   },
   {
-    id: "table",
-    code: "D",
-    eyebrow: "WIZARD OF OZ · TASK D",
-    title: "Table assembly plan",
-    description:
-      "Control the twelve-step table assembly study from the first side structure through the three box assemblies.",
-    tasks: [
-      {
-        name: "Take side 2",
-        correctOptions: [
-          {
-            text: "Take a No.3 piece",
-            audioSrc: "/audio/box-assembly/step01_main_take_no3.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Insert mid-layer 2 into side 2",
-        correctOptions: [
-          {
-            text: "Connect a No.4 piece with the No.3 piece",
-            audioSrc:
-              "/audio/box-assembly/step02_main_connect_no4_no3.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Insert side 3 between side 2 and mid-layer 2",
-        correctOptions: [
-          {
-            text: "Connect another No.3 piece with No.4 piece",
-            audioSrc:
-              "/audio/box-assembly/step03_alt_connect_another_no3_no4.mp3",
-          },
-        ],
-        incorrectOptions: [
-          {
-            text: "Connect the No.1 piece with the No.4 piece",
-            audioSrc:
-              "/audio/box-assembly/step03_main_connect_no1_no4.mp3",
-          },
-        ],
-        mainKind: "incorrect",
-      },
-      {
-        name: "Insert mid-layer 1 between sides 2 and 3",
-        correctOptions: [
-          {
-            text: "(Optional) Replace the No.1 piece with the No.3 piece",
-            audioSrc:
-              "/audio/box-assembly/step04_alt_optional_replace_no1_no3.mp3",
-          },
-          {
-            text: "Insert a No.6 piece between the 2 No.3 pieces",
-            audioSrc:
-              "/audio/box-assembly/step04_alt_insert_no6_between_no3.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Connect the top with sides 2 and 3",
-        correctOptions: [
-          {
-            text: "Insert the No.1 piece on top of the 2 No.3 pieces",
-            audioSrc:
-              "/audio/box-assembly/step05_main_no1_on_two_no3.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Connect side 1 with the top",
-        correctOptions: [
-          {
-            text: "Connect the No.1 piece and No.2 piece",
-            audioSrc:
-              "/audio/box-assembly/step06_main_connect_no1_no2.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Connect the (A) left, back, right, and front pieces",
-        correctOptions: [],
-        incorrectOptions: [
-          {
-            text: "Take two No.5 pieces and two No.9 pieces and connect together into a box",
-            audioSrc: "/audio/box-assembly/step07_main_box_a.mp3",
-          },
-        ],
-        mainKind: "incorrect",
-      },
-      {
-        name: "Connect the (A) bottom with the remaining parts and insert",
-        correctOptions: [
-          {
-            text: "Connect the No.7 piece with the box assembly",
-            audioSrc:
-              "/audio/box-assembly/step08_main_connect_no7_box.mp3",
-          },
-          {
-            text: "replace the No.9 with No.6 pieces and connect with No.5 pieces",
-            audioSrc:
-              "/audio/box-assembly/step08_alt_replace_no9_no6.mp3",
-            tone: "green",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Connect the (C) left, back, right, and front pieces",
-        correctOptions: [
-          {
-            text: "Take two No.5 pieces and two No.6 pieces and connect together into a box",
-            audioSrc: "/audio/box-assembly/step09_main_box_c.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Connect the (C) bottom with the remaining parts and insert",
-        correctOptions: [
-          {
-            text: "Connect the No.7 piece with the box assembly",
-            audioSrc:
-              "/audio/box-assembly/step10_main_connect_no7_box.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Connect the (B) left, back, right, and front pieces",
-        correctOptions: [
-          {
-            text: "replace the No.6 with No.9 pieces",
-            audioSrc:
-              "/audio/box-assembly/step11_alt_replace_no6_no9.mp3",
-          },
-        ],
-        incorrectOptions: [
-          {
-            text: "Take two No.8 pieces and two No.6 pieces and connect together into a box",
-            audioSrc: "/audio/box-assembly/step11_main_box_b.mp3",
-          },
-        ],
-        mainKind: "incorrect",
-      },
-      {
-        name: "Connect the (B) bottom with the remaining parts and insert",
-        correctOptions: [
-          {
-            text: "Connect the No.7 piece with the box assembly",
-            audioSrc:
-              "/audio/box-assembly/step12_main_connect_no7_box.mp3",
-          },
-        ],
-        mainKind: "correct",
-      },
-    ],
+    value: "thinking-about-new-action",
+    label: "Thinking About New Action",
+  },
+  { value: "waiting-for-suggestion", label: "Waiting for Suggestion" },
+  { value: "not-thinking", label: "Not Thinking" },
+  { value: "deferring-action-for-later", label: "Deferring Action for Later" },
+  { value: "taking-actions", label: "Taking Actions" },
+  {
+    value: "not-understand-or-forget-suggestion",
+    label: "Not fully understand or forget suggestion",
   },
 ];
 
-const relianceOptions: { key: Reliance; label: string; short: string }[] = [
-  { key: "app-rely", label: "Appropriate reliance", short: "App Rely" },
-  { key: "over-rely", label: "Over reliance", short: "Over Rely" },
-  { key: "under-rely", label: "Under reliance", short: "Under Rely" },
-  { key: "app-reject", label: "Appropriate rejection", short: "App Reject" },
-];
+type SavedState = {
+  activePlanId: PlanId;
+  participantId: string;
+  sessions: RecordingSession[];
+  selectedSession?: RecordingSession;
+  annotationsBySession: Record<string, Record<number, StepAnnotation>>;
+};
 
-const STORAGE_KEY = "cogar-control-console-v2";
-
-function formatElapsed(totalSeconds: number) {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+function downloadFile(fileName: string, content: string, type: string) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
-function formatClock(timestamp?: string) {
-  if (!timestamp) return "—";
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).format(new Date(timestamp));
-}
-
-function emptyPlanState(plan: Plan): Record<number, TaskState> {
-  return Object.fromEntries(
-    plan.tasks.map((_, index) => [index + 1, { audioPlays: 0 }]),
-  );
-}
-
-function emptyTaskState(): Record<PlanId, Record<number, TaskState>> {
-  return Object.fromEntries(
-    plans.map((plan) => [plan.id, emptyPlanState(plan)]),
-  ) as Record<PlanId, Record<number, TaskState>>;
+function nowIso() {
+  return new Date().toISOString();
 }
 
 export default function Home() {
-  const [activePlanIndex, setActivePlanIndex] = useState(0);
-  const [turnDirection, setTurnDirection] = useState<"next" | "previous">(
-    "next",
-  );
-  const [startedAt, setStartedAt] = useState<number | null>(null);
-  const [completedAt, setCompletedAt] = useState<number | null>(null);
-  const [now, setNow] = useState(() => Date.now());
-  const [taskState, setTaskState] =
-    useState<Record<PlanId, Record<number, TaskState>>>(emptyTaskState);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [playingCue, setPlayingCue] = useState<string | null>(null);
+  const [activePlanId, setActivePlanId] = useState<PlanId>("sandwich");
+  const [participantId, setParticipantId] = useState("P01");
+  const [queryStatus, setQueryStatus] = useState<
+    "idle" | "loading" | "empty" | "error" | "ready"
+  >("idle");
+  const [statusMessage, setStatusMessage] = useState("Ready to load sessions.");
+  const [sessions, setSessions] = useState<RecordingSession[]>([]);
+  const [selectedSession, setSelectedSession] =
+    useState<RecordingSession | null>(null);
+  const [annotationsBySession, setAnnotationsBySession] = useState<
+    Record<string, Record<number, StepAnnotation>>
+  >({});
+  const [currentSeconds, setCurrentSeconds] = useState(0);
+  const [durationSeconds, setDurationSeconds] = useState(0);
   const [hydrated, setHydrated] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const touchStartX = useRef<number | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  const activePlan = plans[activePlanIndex];
-  const activeState = taskState[activePlan.id] ?? emptyPlanState(activePlan);
+  const activePlan = plans.find((plan) => plan.id === activePlanId) ?? plans[0];
+  const annotations = useMemo(
+    () => (selectedSession ? (annotationsBySession[selectedSession.id] ?? {}) : {}),
+    [annotationsBySession, selectedSession],
+  );
+  const annotationRows = useMemo(
+    () =>
+      activePlan.tasks.map((task, index) => {
+        const stepNumber = index + 1;
+        return (
+          annotations[stepNumber] ?? {
+            sessionId: selectedSession?.id ?? "",
+            participantId,
+            taskPlanId: activePlan.id,
+            stepNumber,
+            stepName: task.name,
+            notes: "",
+            updatedAt: nowIso(),
+          }
+        );
+      }),
+    [activePlan, annotations, participantId, selectedSession],
+  );
+  const completeCount = annotationRows.filter(isStepComplete).length;
+  const progress = Math.round((completeCount / activePlan.tasks.length) * 100);
+  const exportRows = selectedSession
+    ? buildExportRows(annotationRows, selectedSession)
+    : [];
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    let restored:
-      | {
-          activePlanIndex?: number;
-          startedAt?: number | null;
-          completedAt?: number | null;
-          taskState?: Record<PlanId, Record<number, TaskState>>;
-          logs?: LogEntry[];
-        }
-      | undefined;
-
-    if (saved) {
-      try {
-        restored = JSON.parse(saved);
-      } catch {
-        window.localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-
     queueMicrotask(() => {
-      if (restored) {
-        setActivePlanIndex(
-          Math.min(Math.max(restored.activePlanIndex ?? 0, 0), plans.length - 1),
-        );
-        setStartedAt(restored.startedAt ?? null);
-        setCompletedAt(restored.completedAt ?? null);
-        setTaskState({
-          ...emptyTaskState(),
-          ...(restored.taskState ?? {}),
-        });
-        setLogs(
-          (restored.logs ?? []).filter((entry) => entry.action === "AI audio"),
-        );
+      const saved = window.localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved) as SavedState;
+          const restoredSessions = (parsed.sessions ?? []).filter(
+            (session) => session.source === "backend",
+          );
+          const restoredSelected =
+            parsed.selectedSession?.source === "backend"
+              ? parsed.selectedSession
+              : null;
+          setActivePlanId(parsed.activePlanId ?? "sandwich");
+          setParticipantId(parsed.participantId ?? "P01");
+          setSessions(restoredSessions);
+          setSelectedSession(restoredSelected);
+          setAnnotationsBySession(parsed.annotationsBySession ?? {});
+        } catch {
+          window.localStorage.removeItem(STORAGE_KEY);
+        }
       }
       setHydrated(true);
     });
-  }, []);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -660,268 +163,197 @@ export default function Home() {
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
-        activePlanIndex,
-        startedAt,
-        completedAt,
-        taskState,
-        logs,
+        activePlanId,
+        participantId,
+        sessions: sessions.filter((session) => session.source === "backend"),
+        selectedSession:
+          selectedSession?.source === "backend" ? selectedSession : undefined,
+        annotationsBySession,
       }),
     );
-  }, [activePlanIndex, completedAt, hydrated, logs, startedAt, taskState]);
+  }, [
+    activePlanId,
+    annotationsBySession,
+    hydrated,
+    participantId,
+    selectedSession,
+    sessions,
+  ]);
 
-  useEffect(() => {
-    return () => {
-      audioRef.current?.pause();
-      audioRef.current = null;
-    };
-  }, []);
-
-  const elapsed = startedAt
-    ? Math.max(0, Math.floor(((completedAt ?? now) - startedAt) / 1000))
-    : 0;
-  const actStarted = Object.values(activeState).filter(
-    (item) => item.userActStartAt,
-  ).length;
-  const actEnded = Object.values(activeState).filter(
-    (item) => item.userActEndAt ?? item.finalAt,
-  ).length;
-  const classified = Object.values(activeState).filter(
-    (item) => item.reliance,
-  ).length;
-  const progress = Math.round(
-    ((actStarted + actEnded + classified) /
-      (activePlan.tasks.length * 3)) *
-      100,
-  );
-
-  const handleSessionAction = () => {
-    audioRef.current?.pause();
-    if (audioRef.current) audioRef.current.currentTime = 0;
-
-    const isStarting = !startedAt;
-    const audio = new Audio(
-      `${PUBLIC_BASE_PATH}${
-        isStarting
-          ? "/audio/session/task_begin.wav"
-          : "/audio/session/task_completed.wav"
-      }`,
-    );
-    audio.preload = "auto";
-    audio.onended = () => setPlayingCue(null);
-    audio.onerror = () => setPlayingCue(null);
-    audioRef.current = audio;
-    setPlayingCue(isStarting ? "session-start" : "session-complete");
-    void audio.play().catch(() => setPlayingCue(null));
-
-    if (isStarting) {
-      setStartedAt(new Date().getTime());
-      setCompletedAt(null);
-    } else {
-      if (!completedAt) {
-        setCompletedAt(new Date().getTime());
-      }
-      exportCsv();
-    }
+  const selectPlan = (planId: PlanId) => {
+    setActivePlanId(planId);
+    setQueryStatus("idle");
+    setStatusMessage("Ready to load sessions.");
+    setSelectedSession(null);
+    setSessions([]);
+    setAnnotationsBySession({});
+    setCurrentSeconds(0);
+    setDurationSeconds(0);
   };
 
-  const addLog = (
-    planId: PlanId,
-    task: number,
-    action: string,
-    detail: string,
-  ) => {
-    const timestamp = new Date().toISOString();
-    const elapsedAtAction = startedAt
-      ? Math.max(
-          0,
-          Math.floor((new Date().getTime() - startedAt) / 1000),
-        )
-      : 0;
-    setLogs((current) => [
-      {
-        id: crypto.randomUUID(),
-        planId,
-        task,
-        action,
-        detail,
-        timestamp,
-        elapsed: elapsedAtAction,
-      },
+  const selectSession = (session: RecordingSession | null) => {
+    setSelectedSession(session);
+    setCurrentSeconds(0);
+    setDurationSeconds(session?.durationSeconds ?? 0);
+    if (!session) return;
+    setAnnotationsBySession((current) => ({
       ...current,
-    ]);
-  };
-
-  const updateTask = (
-    planId: PlanId,
-    taskNumber: number,
-    update: (current: TaskState) => TaskState,
-  ) => {
-    setTaskState((current) => ({
-      ...current,
-      [planId]: {
-        ...current[planId],
-        [taskNumber]: update(
-          current[planId]?.[taskNumber] ?? { audioPlays: 0 },
-        ),
-      },
+      [session.id]: current[session.id] ?? createEmptyAnnotations(session, activePlan),
     }));
   };
 
-  const playInstruction = (
-    planId: PlanId,
-    taskNumber: number,
-    option: InstructionOption,
-    kind: CueKind,
-    optionIndex = 0,
-    shouldRecord = true,
-    actionLabel?: string,
+  const updateAnnotation = (
+    stepNumber: number,
+    update: (current: StepAnnotation) => StepAnnotation,
   ) => {
-    audioRef.current?.pause();
-    if (audioRef.current) audioRef.current.currentTime = 0;
-
-    const audio = new Audio(`${PUBLIC_BASE_PATH}${option.audioSrc}`);
-    audio.preload = "auto";
-    audio.onended = () => setPlayingCue(null);
-    audio.onerror = () => setPlayingCue(null);
-    audioRef.current = audio;
-    setPlayingCue(`${planId}-${taskNumber}-${kind}-${optionIndex}`);
-    void audio.play().catch(() => setPlayingCue(null));
-
-    if (shouldRecord) {
-      updateTask(planId, taskNumber, (current) => ({
-        ...current,
-        audioPlays: current.audioPlays + 1,
-      }));
-      addLog(
-        planId,
-        taskNumber,
-        actionLabel ??
-          (kind === "correct"
-            ? "Alternative correct option"
-            : "Incorrect instruction"),
-        option.text,
-      );
-    }
+    if (!selectedSession) return;
+    setAnnotationsBySession((allSessions) => {
+      const current =
+        allSessions[selectedSession.id] ??
+        createEmptyAnnotations(selectedSession, activePlan);
+      const base =
+        current[stepNumber] ??
+        createEmptyAnnotations(selectedSession, activePlan)[stepNumber];
+      return {
+        ...allSessions,
+        [selectedSession.id]: {
+          ...current,
+          [stepNumber]: update(base),
+        },
+      };
+    });
   };
 
-  const markUserActStart = (planId: PlanId, taskNumber: number) => {
-    const timestamp = new Date().toISOString();
-    const elapsedAtAction = startedAt
-      ? Math.max(
-          0,
-          Math.floor((new Date().getTime() - startedAt) / 1000),
-        )
-      : 0;
-    updateTask(planId, taskNumber, (current) => ({
-      ...current,
-      userActStartAt: timestamp,
-      userActStartElapsed: elapsedAtAction,
-    }));
-  };
-
-  const markUserActEnd = (planId: PlanId, taskNumber: number) => {
-    const timestamp = new Date().toISOString();
-    const elapsedAtAction = startedAt
-      ? Math.max(
-          0,
-          Math.floor((new Date().getTime() - startedAt) / 1000),
-        )
-      : 0;
-    updateTask(planId, taskNumber, (current) => ({
-      ...current,
-      userActEndAt: timestamp,
-      userActEndElapsed: elapsedAtAction,
-    }));
-  };
-
-  const markReliance = (
-    planId: PlanId,
-    taskNumber: number,
-    reliance: Reliance,
-  ) => {
-    updateTask(planId, taskNumber, (current) => ({
-      ...current,
-      reliance,
-    }));
-  };
-
-  const goToPlan = (nextIndex: number) => {
-    if (nextIndex < 0 || nextIndex >= plans.length) return;
-    audioRef.current?.pause();
-    audioRef.current = null;
-    setPlayingCue(null);
-    setTurnDirection(nextIndex > activePlanIndex ? "next" : "previous");
-    setActivePlanIndex(nextIndex);
-  };
-
-  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
-    touchStartX.current = event.touches[0]?.clientX ?? null;
-  };
-
-  const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
-    if (touchStartX.current === null) return;
-    const endX = event.changedTouches[0]?.clientX ?? touchStartX.current;
-    const distance = endX - touchStartX.current;
-    touchStartX.current = null;
-    if (distance < -60) goToPlan(activePlanIndex + 1);
-    if (distance > 60) goToPlan(activePlanIndex - 1);
-  };
-
-  const resetSession = () => {
-    if (!window.confirm("Reset this session and remove all local records?"))
+  const querySessions = async () => {
+    if (!participantId.trim()) {
+      setQueryStatus("error");
+      setStatusMessage("Enter a participant ID before querying sessions.");
       return;
-    audioRef.current?.pause();
-    audioRef.current = null;
-    setStartedAt(null);
-    setCompletedAt(null);
-    setTaskState(emptyTaskState());
-    setLogs([]);
-    setPlayingCue(null);
-    window.localStorage.removeItem(STORAGE_KEY);
+    }
+
+    setQueryStatus("loading");
+    setStatusMessage("Querying processed Project Aria sessions...");
+
+    try {
+      const params = new URLSearchParams({
+        participantId: participantId.trim(),
+        taskPlanId: activePlan.id,
+      });
+      const response = await fetch(`/api/sessions?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error(`Session query failed with ${response.status}`);
+      }
+      const normalized = normalizeSessionResponse(await response.json()).filter(
+        (session) => session.taskPlanId === activePlan.id,
+      );
+      setSessions(normalized);
+      selectSession(normalized[0] ?? null);
+      setQueryStatus(normalized.length > 0 ? "ready" : "empty");
+      setStatusMessage(
+        normalized.length > 0
+          ? `${normalized.length} processed session${normalized.length === 1 ? "" : "s"} found.`
+          : "No processed sessions found. Upload an RGB view video instead.",
+      );
+    } catch (error) {
+      setQueryStatus("error");
+      setStatusMessage(
+        error instanceof Error
+          ? error.message
+          : "Session query failed. Upload remains available.",
+      );
+      setSessions([]);
+      selectSession(null);
+    }
+  };
+
+  const handleUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("video/")) {
+      setQueryStatus("error");
+      setStatusMessage("Choose a browser-playable RGB video file.");
+      event.target.value = "";
+      return;
+    }
+
+    if (selectedSession?.source === "manual-upload") {
+      URL.revokeObjectURL(selectedSession.rgbVideoUrl);
+    }
+
+    const uploadSession = createUploadSession({
+      fileName: file.name,
+      objectUrl: URL.createObjectURL(file),
+      participantId: participantId.trim() || "manual-participant",
+      taskPlanId: activePlan.id,
+    });
+
+    setSessions((current) => [uploadSession, ...current]);
+    selectSession(uploadSession);
+    setQueryStatus("ready");
+    setStatusMessage("Manual RGB upload loaded for annotation.");
+    event.target.value = "";
+  };
+
+  const readVideoSeconds = () => {
+    const seconds = videoRef.current?.currentTime ?? currentSeconds;
+    setCurrentSeconds(seconds);
+    return seconds;
+  };
+
+  const markStart = (stepNumber: number) => {
+    const seconds = readVideoSeconds();
+    updateAnnotation(stepNumber, (current) =>
+      setStepStart(current, seconds, nowIso()),
+    );
+  };
+
+  const markEnd = (stepNumber: number) => {
+    const seconds = readVideoSeconds();
+    updateAnnotation(stepNumber, (current) => {
+      try {
+        return setStepEnd(current, seconds, nowIso());
+      } catch (error) {
+        setStatusMessage(
+          error instanceof Error ? error.message : "Invalid step end time.",
+        );
+        return current;
+      }
+    });
+  };
+
+  const exportJson = () => {
+    if (!selectedSession) return;
+    downloadFile(
+      `cogar-${selectedSession.id}-annotations.json`,
+      JSON.stringify(exportRows, null, 2),
+      "application/json;charset=utf-8",
+    );
   };
 
   const exportCsv = () => {
-    const header = [
-      "plan",
-      "task",
-      "step",
-      "action",
-      "detail",
-      "timestamp_iso",
-      "elapsed",
-    ];
-    const rows = [...logs].reverse().map((entry) => {
-      const plan = plans.find((item) => item.id === entry.planId)!;
-      return [
-        plan.title,
-        entry.task,
-        plan.tasks[entry.task - 1].name,
-        entry.action,
-        entry.detail,
-        entry.timestamp,
-        formatElapsed(entry.elapsed),
-      ];
-    });
-    const csv = [header, ...rows]
-      .map((row) =>
-        row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","),
-      )
-      .join("\n");
-    const url = URL.createObjectURL(
-      new Blob([csv], { type: "text/csv;charset=utf-8" }),
+    if (!selectedSession) return;
+    downloadFile(
+      `cogar-${selectedSession.id}-annotations.csv`,
+      buildCsv(exportRows),
+      "text/csv;charset=utf-8",
     );
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `cogar-${new Date().toISOString().slice(0, 19)}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
   };
 
-  const sessionLabel = useMemo(() => {
-    if (!startedAt) return "Ready";
-    if (completedAt) return "Complete";
-    return "Live session";
-  }, [completedAt, startedAt]);
+  const resetDraft = () => {
+    if (!window.confirm("Reset the current annotation draft on this device?"))
+      return;
+    if (selectedSession?.source === "manual-upload") {
+      URL.revokeObjectURL(selectedSession.rgbVideoUrl);
+    }
+    setSessions([]);
+    setSelectedSession(null);
+    setAnnotationsBySession({});
+    setCurrentSeconds(0);
+    setDurationSeconds(0);
+    setQueryStatus("idle");
+    setStatusMessage("Ready to load sessions.");
+    window.localStorage.removeItem(STORAGE_KEY);
+  };
 
   return (
     <main>
@@ -938,435 +370,367 @@ export default function Home() {
           </div>
         </div>
         <div className="session-tools">
-          <button
-            type="button"
-            className={`task-start-button ${
-              playingCue ===
-              (startedAt ? "session-complete" : "session-start")
-                ? "is-playing"
-                : ""
-            } ${startedAt ? "is-started" : ""}`}
-            onClick={handleSessionAction}
-            aria-label={
-              !startedAt
-                ? "Play task start audio and start the session timer"
-                : completedAt
-                  ? "Replay task complete audio"
-                  : "Play task complete audio and stop the session timer"
-            }
-            title={
-              !startedAt
-                ? "Play audio and start session timer"
-                : completedAt
-                  ? "Replay task complete audio"
-                  : "Play audio and complete session"
-            }
-            data-testid={startedAt ? "task-complete" : "task-start"}
-          >
-            <span aria-hidden="true">{completedAt ? "✓" : "▶"}</span>
-            {startedAt ? "Task complete" : "Task start"}
-          </button>
-          <div className={`live-pill ${startedAt ? "is-live" : ""}`}>
+          <div className={`live-pill is-${queryStatus}`}>
             <span aria-hidden="true" />
-            {sessionLabel}
+            {selectedSession ? selectedSession.source : queryStatus}
           </div>
           <div
             className="timer"
-            aria-label={`Session elapsed time ${formatElapsed(elapsed)}`}
+            aria-label={`Video timestamp ${formatTimecode(currentSeconds)}`}
           >
-            <small>SESSION TIME</small>
-            <strong>{formatElapsed(elapsed)}</strong>
+            <small>VIDEO TIME</small>
+            <strong>{formatTimecode(currentSeconds)}</strong>
           </div>
-          <button className="ghost-button" type="button" onClick={resetSession}>
-            Reset session
+          <button
+            className="export-button"
+            type="button"
+            disabled={!selectedSession}
+            onClick={exportCsv}
+          >
+            Export CSV
+          </button>
+          <button
+            className="ghost-button"
+            type="button"
+            disabled={!selectedSession}
+            onClick={exportJson}
+          >
+            Export JSON
+          </button>
+          <button className="ghost-button" type="button" onClick={resetDraft}>
+            Reset
           </button>
         </div>
       </header>
 
       <nav className="plan-tabs" aria-label="Task plans">
-        {plans.map((plan, index) => (
+        {plans.map((plan) => (
           <button
             type="button"
-            className={index === activePlanIndex ? "is-active" : ""}
-            onClick={() => goToPlan(index)}
-            aria-current={index === activePlanIndex ? "page" : undefined}
+            className={plan.id === activePlan.id ? "is-active" : ""}
+            onClick={() => selectPlan(plan.id)}
+            aria-current={plan.id === activePlan.id ? "page" : undefined}
             key={plan.id}
           >
             <span>{plan.code}</span>
             {plan.title}
           </button>
         ))}
-        <p>
-          {String(activePlanIndex + 1).padStart(2, "0")} /{" "}
-          {String(plans.length).padStart(2, "0")}
-        </p>
+        <p>{activePlan.code} / 04</p>
       </nav>
 
-      <div
-        className="page-stage"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        {activePlanIndex > 0 && (
-          <button
-            type="button"
-            className="page-arrow page-arrow-previous"
-            onClick={() => goToPlan(activePlanIndex - 1)}
-            aria-label={`Previous task: ${plans[activePlanIndex - 1].title}`}
-            title={`Previous: ${plans[activePlanIndex - 1].title}`}
-          >
-            ←
-          </button>
-        )}
-        {activePlanIndex < plans.length - 1 && (
-          <button
-            type="button"
-            className="page-arrow page-arrow-next"
-            onClick={() => goToPlan(activePlanIndex + 1)}
-            aria-label={`Next task: ${plans[activePlanIndex + 1].title}`}
-            title={`Next: ${plans[activePlanIndex + 1].title}`}
-          >
-            →
-          </button>
-        )}
-
-        <div
-          className={`plan-page turn-${turnDirection}`}
-          key={activePlan.id}
-        >
-          <section className="intro">
-            <div className="plan-heading">
-              <div className="plan-code" aria-hidden="true">
-                {activePlan.code}
-              </div>
-              <div>
-                <p className="eyebrow">{activePlan.eyebrow}</p>
-                <h2>{activePlan.title}</h2>
-                <p className="intro-copy">{activePlan.description}</p>
-              </div>
-            </div>
-            <div className="progress-card">
-              <div className="progress-copy">
-                <span>Task progress</span>
-                <strong>{progress}%</strong>
-              </div>
-              <div
-                className="progress-track"
-                role="progressbar"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={progress}
-              >
-                <span style={{ width: `${progress}%` }} />
-              </div>
-              <p>
-                {actStarted}/{activePlan.tasks.length} started · {actEnded}/
-                {activePlan.tasks.length} ended · {classified}/
-                {activePlan.tasks.length} classified
-              </p>
-            </div>
-          </section>
-
-          <section
-            className="console-card"
-            aria-label={`${activePlan.title} control matrix`}
-          >
-            <div className="matrix-scroll">
-              <div className="matrix" role="table" aria-label="Task control matrix">
-                <div className="matrix-header" role="row">
-                  <div className="step-heading" role="columnheader">
-                    <span>Task sequence &amp; instructions</span>
-                    <span className="cue-legend">
-                      <span className="legend-correct">Correct</span>
-                      <span className="legend-recovery">Recovery</span>
-                      <span className="legend-incorrect">Incorrect</span>
-                    </span>
-                  </div>
-                  <div role="columnheader">AI audio</div>
-                  <div role="columnheader">User act start</div>
-                  <div role="columnheader">User act end</div>
-                  {relianceOptions.map((option) => (
-                    <div role="columnheader" key={option.key}>
-                      {option.short}
-                    </div>
-                  ))}
-                </div>
-
-                {activePlan.tasks.map((task, index) => {
-                  const taskNumber = index + 1;
-                  const state = activeState[taskNumber] ?? { audioPlays: 0 };
-                  return (
-                    <div
-                      className={`matrix-row ${
-                        (state.userActEndAt ?? state.finalAt)
-                          ? "is-complete"
-                          : ""
-                      }`}
-                      role="row"
-                      key={`${task.name}-${taskNumber}`}
-                    >
-                      <div className="task-cell" role="rowheader">
-                        <div className="step-number">
-                          {String(taskNumber).padStart(2, "0")}
-                        </div>
-                        <div className="step-copy">
-                          <strong>{task.name}</strong>
-                          <div className="instruction-cues">
-                            {task.correctOptions.map((option, optionIndex) => (
-                              <button
-                                type="button"
-                                className={`cue-button cue-correct is-hint-only ${
-                                  option.tone === "green" ? "cue-green" : ""
-                                } ${
-                                  playingCue ===
-                                  `${activePlan.id}-${taskNumber}-correct-${optionIndex}`
-                                    ? "is-playing"
-                                    : ""
-                                }`}
-                                onClick={() =>
-                                  playInstruction(
-                                    activePlan.id,
-                                    taskNumber,
-                                    option,
-                                    "correct",
-                                    optionIndex,
-                                    false,
-                                  )
-                                }
-                                aria-label={`Play unlogged instruction preview ${
-                                  optionIndex + 1
-                                } for task ${taskNumber}: ${
-                                  option.text
-                                }`}
-                                title="Preview only — no timestamp or event log"
-                                data-testid={`${activePlan.id}-correct-option-${taskNumber}-${optionIndex}`}
-                                key={option.audioSrc}
-                              >
-                                <span aria-hidden="true">▶</span>
-                                {option.text}
-                              </button>
-                            ))}
-                            {task.incorrectOptions?.map(
-                              (option, optionIndex) => (
-                                <button
-                                  type="button"
-                                  className={`cue-button cue-incorrect ${
-                                    playingCue ===
-                                    `${activePlan.id}-${taskNumber}-incorrect-${optionIndex}`
-                                      ? "is-playing"
-                                      : ""
-                                  }`}
-                                  onClick={() =>
-                                    playInstruction(
-                                      activePlan.id,
-                                      taskNumber,
-                                      option,
-                                      "incorrect",
-                                      optionIndex,
-                                      false,
-                                    )
-                                  }
-                                  aria-label={`Play unlogged incorrect instruction preview ${
-                                    optionIndex + 1
-                                  } for task ${taskNumber}: ${option.text}`}
-                                  title="Preview only — no timestamp or event log"
-                                  data-testid={`${activePlan.id}-incorrect-option-${taskNumber}-${optionIndex}`}
-                                  key={option.audioSrc}
-                                >
-                                  <span aria-hidden="true">▶</span>
-                                  {option.text}
-                                </button>
-                              ),
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div role="cell" className="action-cell">
-                        <button
-                          type="button"
-                          className={`circle-button audio-button ${
-                            playingCue ===
-                            `${activePlan.id}-${taskNumber}-${task.mainKind}-0`
-                              ? "is-playing"
-                              : ""
-                          }`}
-                          onClick={() => {
-                            const mainOption =
-                              task.mainKind === "correct"
-                                ? task.correctOptions[0]
-                                : task.incorrectOptions![0];
-                            playInstruction(
-                              activePlan.id,
-                              taskNumber,
-                              mainOption,
-                              task.mainKind,
-                              0,
-                              true,
-                              "AI audio",
-                            );
-                          }}
-                          aria-label={`Play main AI audio for task ${taskNumber}`}
-                          title="Play main AI instruction"
-                          data-testid={`${activePlan.id}-audio-${taskNumber}`}
-                        >
-                          <span className="speaker-icon" aria-hidden="true">
-                            ▶
-                          </span>
-                        </button>
-                        <small>
-                          {state.audioPlays ? `${state.audioPlays}×` : "Play"}
-                        </small>
-                      </div>
-
-                      <div role="cell" className="action-cell">
-                        <button
-                          type="button"
-                          className={`circle-button act-start-button ${
-                            state.userActStartAt ? "is-selected" : ""
-                          }`}
-                          onClick={() =>
-                            markUserActStart(activePlan.id, taskNumber)
-                          }
-                          aria-label={`Mark user act start timestamp for task ${taskNumber}`}
-                          aria-pressed={Boolean(state.userActStartAt)}
-                          title="Mark user act start"
-                          data-testid={`${activePlan.id}-act-start-${taskNumber}`}
-                        >
-                          <span aria-hidden="true">
-                            {state.userActStartAt ? "✓" : "＋"}
-                          </span>
-                        </button>
-                        <small>
-                          {state.userActStartAt
-                            ? formatClock(state.userActStartAt)
-                            : "Mark"}
-                        </small>
-                      </div>
-
-                      <div role="cell" className="action-cell">
-                        <button
-                          type="button"
-                          className={`circle-button act-end-button ${
-                            state.userActEndAt ?? state.finalAt
-                              ? "is-selected"
-                              : ""
-                          }`}
-                          onClick={() =>
-                            markUserActEnd(activePlan.id, taskNumber)
-                          }
-                          aria-label={`Mark user act end timestamp for task ${taskNumber}`}
-                          aria-pressed={Boolean(
-                            state.userActEndAt ?? state.finalAt,
-                          )}
-                          title="Mark user act end"
-                          data-testid={`${activePlan.id}-act-end-${taskNumber}`}
-                        >
-                          <span aria-hidden="true">
-                            {state.userActEndAt ?? state.finalAt ? "✓" : "＋"}
-                          </span>
-                        </button>
-                        <small>
-                          {state.userActEndAt ?? state.finalAt
-                            ? formatClock(state.userActEndAt ?? state.finalAt)
-                            : "Mark"}
-                        </small>
-                      </div>
-
-                      {relianceOptions.map((option) => {
-                        const selected = state.reliance === option.key;
-                        return (
-                          <div
-                            role="cell"
-                            className="action-cell"
-                            key={option.key}
-                          >
-                            <button
-                              type="button"
-                              className={`circle-button reliance-button ${
-                                selected ? "is-selected" : ""
-                              }`}
-                              onClick={() =>
-                                markReliance(
-                                  activePlan.id,
-                                  taskNumber,
-                                  option.key,
-                                )
-                              }
-                              aria-label={`${option.label} for task ${taskNumber}`}
-                              aria-pressed={selected}
-                              title={option.label}
-                              data-testid={`${activePlan.id}-${option.key}-${taskNumber}`}
-                            >
-                              <span aria-hidden="true">
-                                {selected ? "✓" : ""}
-                              </span>
-                            </button>
-                            <small>
-                              {selected ? "Selected" : option.short}
-                            </small>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
-
-      <section className="log-card">
-        <div className="log-header">
+      <section className="intro annotation-intro">
+        <div className="plan-heading">
+          <div className="plan-code" aria-hidden="true">
+            {activePlan.code}
+          </div>
           <div>
-            <p className="eyebrow">LOCAL RECORD · ALL TASKS</p>
-            <h3>Event log</h3>
+            <p className="eyebrow">{activePlan.eyebrow}</p>
+            <h2>Annotation Console</h2>
+            <p className="intro-copy">{activePlan.description}</p>
           </div>
+        </div>
+        <div className="progress-card">
+          <div className="progress-copy">
+            <span>Step annotations</span>
+            <strong>{progress}%</strong>
+          </div>
+          <div
+            className="progress-track"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress}
+          >
+            <span style={{ width: `${progress}%` }} />
+          </div>
+          <p>
+            {completeCount}/{activePlan.tasks.length} complete ·{" "}
+            {selectedSession ? selectedSession.id : "no session selected"}
+          </p>
+        </div>
+      </section>
+
+      <section className="loader-card" aria-label="Session loader">
+        <div className="loader-fields">
+          <label>
+            <span>Participant ID</span>
+            <input
+              value={participantId}
+              onChange={(event) => setParticipantId(event.target.value)}
+              placeholder="P01"
+            />
+          </label>
+          <label>
+            <span>Task plan</span>
+            <select
+              value={activePlan.id}
+              onChange={(event) => selectPlan(event.target.value as PlanId)}
+            >
+              {plans.map((plan) => (
+                <option value={plan.id} key={plan.id}>
+                  {plan.title}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
             type="button"
-            className="export-button"
-            onClick={exportCsv}
-            disabled={!logs.length}
+            className="task-start-button"
+            onClick={querySessions}
+            disabled={queryStatus === "loading"}
           >
-            Export CSV
+            <span aria-hidden="true">⌕</span>
+            Query sessions
           </button>
+          <label className="upload-button">
+            <span aria-hidden="true">↑</span>
+            Upload RGB
+            <input accept="video/*" type="file" onChange={handleUpload} />
+          </label>
         </div>
-        {logs.length ? (
-          <div className="log-list" aria-live="polite">
-            {logs.slice(0, 8).map((entry) => {
-              const logPlan = plans.find(
-                (plan) => plan.id === entry.planId,
-              )!;
-              return (
-                <article className="log-item" key={entry.id}>
-                  <div className="log-task">
-                    {logPlan.code}
-                    {entry.task}
-                  </div>
-                  <div>
-                    <strong>{entry.action}</strong>
-                    <p>{entry.detail}</p>
-                  </div>
-                  <time dateTime={entry.timestamp}>
-                    {formatElapsed(entry.elapsed)}
-                    <span>{formatClock(entry.timestamp)}</span>
-                  </time>
-                </article>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="empty-log">
-            <span aria-hidden="true">◎</span>
-            <p>AI Audio plays will appear here with timestamps.</p>
+        <div className={`status-line status-${queryStatus}`}>
+          <span aria-hidden="true" />
+          {statusMessage}
+        </div>
+        {sessions.length > 0 && (
+          <div className="session-list">
+            {sessions.map((session) => (
+              <button
+                type="button"
+                className={
+                  selectedSession?.id === session.id ? "is-selected" : ""
+                }
+                onClick={() => selectSession(session)}
+                key={session.id}
+              >
+                <strong>{session.id}</strong>
+                <span>{session.sourceVrsName}</span>
+                <small>
+                  {session.durationSeconds
+                    ? formatTimecode(session.durationSeconds)
+                    : "duration pending"}
+                </small>
+              </button>
+            ))}
           </div>
         )}
       </section>
 
+      <section className="workspace-grid">
+        <article className="video-card" aria-label="RGB view">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">RGB VIEW</p>
+              <h3>{selectedSession?.sourceVrsName ?? "No recording loaded"}</h3>
+            </div>
+            <strong>{formatTimecode(durationSeconds || currentSeconds)}</strong>
+          </div>
+          <div className="video-frame">
+            {selectedSession ? (
+              <video
+                controls
+                ref={videoRef}
+                src={selectedSession.rgbVideoUrl}
+                onTimeUpdate={(event) =>
+                  setCurrentSeconds(event.currentTarget.currentTime)
+                }
+                onLoadedMetadata={(event) => {
+                  const duration = event.currentTarget.duration;
+                  if (Number.isFinite(duration)) setDurationSeconds(duration);
+                }}
+              />
+            ) : (
+              <div className="video-empty">
+                <span aria-hidden="true">▶</span>
+                <p>Load a processed Project Aria RGB recording.</p>
+              </div>
+            )}
+          </div>
+          <dl className="session-meta">
+            <div>
+              <dt>Participant</dt>
+              <dd>{selectedSession?.participantId ?? participantId}</dd>
+            </div>
+            <div>
+              <dt>Source</dt>
+              <dd>{selectedSession?.source ?? "none"}</dd>
+            </div>
+            <div>
+              <dt>RGB score</dt>
+              <dd>
+                {selectedSession?.quality?.rgbCameraScore !== undefined
+                  ? `${selectedSession.quality.rgbCameraScore}%`
+                  : "pending"}
+              </dd>
+            </div>
+            <div>
+              <dt>Frames</dt>
+              <dd>
+                {selectedSession?.quality?.rgbFramesProcessed !== undefined
+                  ? `${selectedSession.quality.rgbFramesProcessed}/${selectedSession.quality.rgbFramesExpected ?? "?"}`
+                  : "pending"}
+              </dd>
+            </div>
+          </dl>
+        </article>
+
+        <article className="annotation-card" aria-label="Step annotations">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">{activePlan.annotationTitle}</p>
+              <h3>Step annotations</h3>
+            </div>
+            <strong>{completeCount}/{activePlan.tasks.length}</strong>
+          </div>
+          <div className="annotation-list">
+            {annotationRows.map((annotation) => {
+              const step = activePlan.tasks[annotation.stepNumber - 1];
+              const complete = isStepComplete(annotation);
+
+              return (
+                <section
+                  className={`annotation-row ${complete ? "is-complete" : ""}`}
+                  key={annotation.stepNumber}
+                >
+                  <div className="step-cell">
+                    <span className="step-number">
+                      {String(annotation.stepNumber).padStart(2, "0")}
+                    </span>
+                    <div>
+                      <strong>{annotation.stepName}</strong>
+                      <p>{step.correctOptions[0]?.text ?? "Review step outcome"}</p>
+                    </div>
+                  </div>
+
+                  <div className="time-controls">
+                    <button
+                      type="button"
+                      onClick={() => markStart(annotation.stepNumber)}
+                      disabled={!selectedSession}
+                    >
+                      Mark start
+                    </button>
+                    <span>{formatTimecode(annotation.startSeconds ?? 0)}</span>
+                    <button
+                      type="button"
+                      onClick={() => markEnd(annotation.stepNumber)}
+                      disabled={!selectedSession}
+                    >
+                      Mark end
+                    </button>
+                    <span>{formatTimecode(annotation.endSeconds ?? 0)}</span>
+                  </div>
+
+                  <label className="range-control">
+                    <span>Reliance {annotation.relianceAmount ?? "-"}</span>
+                    <input
+                      min={0}
+                      max={7}
+                      step={1}
+                      type="range"
+                      value={annotation.relianceAmount ?? 0}
+                      disabled={!selectedSession}
+                      onChange={(event) =>
+                        updateAnnotation(annotation.stepNumber, (current) => ({
+                          ...current,
+                          relianceAmount: Number(event.target.value),
+                          updatedAt: nowIso(),
+                        }))
+                      }
+                    />
+                  </label>
+
+                  <div className="segmented-control">
+                    {relianceTypes.map((item) => (
+                      <button
+                        type="button"
+                        className={
+                          annotation.relianceType === item.value
+                            ? "is-selected"
+                            : ""
+                        }
+                        title={item.label}
+                        disabled={!selectedSession}
+                        onClick={() =>
+                          updateAnnotation(annotation.stepNumber, (current) => ({
+                            ...current,
+                            relianceType: item.value,
+                            updatedAt: nowIso(),
+                          }))
+                        }
+                        key={item.value}
+                      >
+                        {item.short}
+                      </button>
+                    ))}
+                  </div>
+
+                  <label className="range-control">
+                    <span>Confidence {annotation.confidence ?? "-"}</span>
+                    <input
+                      min={0}
+                      max={7}
+                      step={1}
+                      type="range"
+                      value={annotation.confidence ?? 0}
+                      disabled={!selectedSession}
+                      onChange={(event) =>
+                        updateAnnotation(annotation.stepNumber, (current) => ({
+                          ...current,
+                          confidence: Number(event.target.value),
+                          updatedAt: nowIso(),
+                        }))
+                      }
+                    />
+                  </label>
+
+                  <label className="state-select">
+                    <span>Cognitive state</span>
+                    <select
+                      value={annotation.cognitiveState ?? ""}
+                      disabled={!selectedSession}
+                      onChange={(event) =>
+                        updateAnnotation(annotation.stepNumber, (current) => ({
+                          ...current,
+                          cognitiveState: event.target.value as CognitiveState,
+                          updatedAt: nowIso(),
+                        }))
+                      }
+                    >
+                      <option value="">Choose state</option>
+                      {cognitiveStates.map((state) => (
+                        <option value={state.value} key={state.value}>
+                          {state.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="notes-field">
+                    <span>Notes</span>
+                    <textarea
+                      value={annotation.notes ?? ""}
+                      disabled={!selectedSession}
+                      onChange={(event) =>
+                        updateAnnotation(annotation.stepNumber, (current) => ({
+                          ...current,
+                          notes: event.target.value,
+                          updatedAt: nowIso(),
+                        }))
+                      }
+                    />
+                  </label>
+                </section>
+              );
+            })}
+          </div>
+        </article>
+      </section>
+
       <footer>
-        <p>Records stay on this device until you reset the session.</p>
-        <p>CogAR · Wizard of Oz operator view</p>
+        <p>Draft annotations stay on this device until export or reset.</p>
+        <p>CogAR · Project Aria RGB annotation view</p>
       </footer>
     </main>
   );
