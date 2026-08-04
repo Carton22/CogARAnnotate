@@ -2,6 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 const model = await import("../app/annotation-model.ts");
+const taskPlans = await import("../app/task-plans.ts");
+
+test("uses the same participant-stable Shelf sequence as CogARReliance", () => {
+  const p1 = taskPlans.planForParticipant("shelf", "P01");
+  const p1Again = taskPlans.planForParticipant("shelf", "1");
+  const p2 = taskPlans.planForParticipant("shelf", "P02");
+
+  assert.equal(p1.tasks.length, 20);
+  assert.deepEqual(p1.tasks, p1Again.tasks);
+  assert.notDeepEqual(p1.tasks, p2.tasks);
+  assert.equal(p1.tasks.filter((task) => task.mainKind === "incorrect").length, 5);
+});
 
 test("formats video seconds as compact timecodes", () => {
   assert.equal(model.formatTimecode(0), "00:00");

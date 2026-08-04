@@ -25,6 +25,37 @@ export type Plan = {
   tasks: Task[];
 };
 
+const shelfCorrectSteps = [
+  "Classify the pieces based on color", "Take a yellow piece", "Take a green piece",
+  "Insert a green piece at slot 1 of the yellow piece", "Take a pink piece",
+  "Insert a pink piece at slot 2 of the yellow piece", "Insert another pink piece at slot 3 of the yellow piece",
+  "Insert another pink piece at slot 4 of the yellow piece", "Take a green piece",
+  "Align the orientations of the 2 green pieces", "Insert a green piece at slot 5 of the yellow piece",
+  "Take a yellow piece", "Insert another yellow piece on the right of green and pink pieces mirroring the 1st yellow panel.",
+  "Take a blue piece", "Insert a blue piece with green and pink pieces",
+];
+const bobaCorrectSteps = [
+  "Take a cup", "Add strawberry sugar syrup into the cup", "Add boba into the cup", "Mix boba with the syrup",
+  "Add the yogurt into the cup as a bottom layer", "Take a new cup", "Pour the matcha latte into the new cup",
+  "Pour coconut milk into the matcha latte", "Mix up the matcha and the coconut milk", "Pour mixed matcha milk into the 1st cup",
+  "Throw away the 2nd cup", "Grab the milk cream", "Add cream on top of the 1st cup", "Add matcha powder", "Add a straw",
+];
+const distractors = {
+  shelf: ["Take a scissors", "Insert a purple piece at slot 3", "Insert a pink piece at slot 5", "Take a black piece", "Take a marker pen"],
+  boba: ["Add white sugar to the cup", "Take one more plate", "Put a piece of lemon on the edge of the cup", "Pour out 25% portion of the first cup into the trash can", "Stir the cup"],
+};
+
+function seededRandom(seedText: string) {
+  let seed = 2166136261;
+  for (const character of seedText) { seed ^= character.charCodeAt(0); seed = Math.imul(seed, 16777619); }
+  return () => { seed += 0x6d2b79f5; let value = seed; value = Math.imul(value ^ (value >>> 15), value | 1); value ^= value + Math.imul(value ^ (value >>> 7), value | 61); return ((value ^ (value >>> 14)) >>> 0) / 4294967296; };
+}
+
+function participantNumber(participantId: string) {
+  const numeric = Number(participantId.replace(/\D/g, ""));
+  return numeric >= 1 && numeric <= 36 ? numeric : 1;
+}
+
 export const plans: Plan[] = [
   {
     id: "sandwich",
@@ -279,3 +310,20 @@ export const plans: Plan[] = [
     ],
   },
 ];
+
+export function planForParticipant(planId: PlanId, participantId: string): Plan {
+  const base = plans.find((plan) => plan.id === planId) ?? plans[0];
+  if (planId !== "shelf" && planId !== "boba") return base;
+  const correct = planId === "shelf" ? shelfCorrectSteps : bobaCorrectSteps;
+  const random = seededRandom(`${planId}-${participantNumber(participantId)}`);
+  const tasks = Array.from({ length: 5 }, (_, blockIndex) => {
+    const block = correct.slice(blockIndex * 3, blockIndex * 3 + 3).map((text) => ({
+      name: text, correctOptions: [{ text }], mainKind: "correct" as const,
+    }));
+    const position = blockIndex === 0 ? 1 + Math.floor(random() * 3) : Math.floor(random() * 4);
+    const text = distractors[planId][blockIndex];
+    const distractor = { name: text, correctOptions: [], incorrectOptions: [{ text }], mainKind: "incorrect" as const };
+    return [...block.slice(0, position), distractor, ...block.slice(position)];
+  }).flat();
+  return { ...base, tasks };
+}

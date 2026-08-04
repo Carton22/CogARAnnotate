@@ -25,7 +25,7 @@ import {
   type RelianceType,
   type StepAnnotation,
 } from "./annotation-model";
-import { plans, type PlanId } from "./task-plans";
+import { planForParticipant, plans, type PlanId } from "./task-plans";
 
 const STORAGE_KEY = "cogar-annotation-console-v1";
 const DEFAULT_SESSIONS_ENDPOINT =
@@ -114,7 +114,7 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  const activePlan = plans.find((plan) => plan.id === activePlanId) ?? plans[0];
+  const activePlan = planForParticipant(activePlanId, participantId);
   const annotations = useMemo(
     () => (selectedSession ? (annotationsBySession[selectedSession.id] ?? {}) : {}),
     [annotationsBySession, selectedSession],
