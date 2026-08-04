@@ -27,7 +27,9 @@ import {
 } from "./annotation-model";
 import { planForParticipant, plans, type PlanId } from "./task-plans";
 
-const STORAGE_KEY = "cogar-annotation-console-v1";
+// v2 clears pre-randomization drafts whose fixed Boba/Shelf step names would
+// otherwise override the participant-specific sequence.
+const STORAGE_KEY = "cogar-annotation-console-v2";
 const DEFAULT_SESSIONS_ENDPOINT =
   process.env.NEXT_PUBLIC_COGAR_SESSIONS_ENDPOINT ??
   "http://localhost:8765/api/sessions";
