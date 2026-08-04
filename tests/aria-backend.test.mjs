@@ -114,3 +114,54 @@ print(Path(${JSON.stringify(join(rawDir, "P04", "P04_table.vrs"))}).exists())
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /True/);
 });
+
+test("local Aria backend lists Gen 1 recordings and downloads only the selection", async () => {
+  const root = await mkdtemp(join(tmpdir(), "cogar-gen1-device-"));
+  const fakeBin = join(root, "bin");
+  const rawDir = join(root, "raw");
+  const pullLog = join(root, "pulls.log");
+  await mkdir(fakeBin, { recursive: true });
+  await writeFile(
+    join(fakeBin, "adb"),
+    `#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1 $2" == "devices -l" ]]; then
+  printf 'List of devices attached\\nARIA123 device product:aria model:Aria\\n'
+elif [[ "$1 $2 $3" == "shell ls -1" && "\${4:-}" == "/sdcard/recording" ]]; then
+  printf 'chosen.vrs\\nchosen.json\\nother.vrs\\n'
+elif [[ "$1" == "pull" ]]; then
+  printf '%s\\n' "$2" >> ${JSON.stringify(pullLog)}
+  mkdir -p "$3"
+  printf data > "$3/$(basename "$2")"
+else
+  exit 2
+fi
+`,
+    { mode: 0o755 },
+  );
+
+  const script = `
+from pathlib import Path
+import sys
+sys.path.insert(0, ${JSON.stringify(new URL("../backend", import.meta.url).pathname)})
+import aria_backend
+
+adb = "adb"
+recordings = aria_backend.list_device_recordings(adb=adb)
+aria_backend.download_device_recording(
+    "chosen.vrs", Path(${JSON.stringify(rawDir)}), adb=adb
+)
+print([recording.name for recording in recordings])
+`;
+  const result = spawnSync("python3", ["-c", script], {
+    env: { ...process.env, PATH: `${fakeBin}:${process.env.PATH}` },
+    encoding: "utf8",
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /\['chosen.vrs', 'other.vrs'\]/);
+  assert.equal(
+    await readFile(pullLog, "utf8"),
+    "/sdcard/recording/chosen.vrs\n/sdcard/recording/chosen.json\n",
+  );
+});

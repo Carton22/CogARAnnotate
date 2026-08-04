@@ -48,6 +48,14 @@ class AriaSession:
         }
 
 
+@dataclass(frozen=True)
+class DeviceRecording:
+    name: str
+
+    def to_response(self) -> dict[str, str]:
+        return {"name": self.name}
+
+
 def slugify(value: str) -> str:
     normalized = []
     for char in value.strip():
@@ -59,13 +67,17 @@ def slugify(value: str) -> str:
 
 
 def read_metadata(vrs_path: Path) -> dict[str, Any]:
-    metadata_path = vrs_path.with_suffix(vrs_path.suffix + ".json")
-    if not metadata_path.exists():
-        return {}
-    try:
-        return json.loads(metadata_path.read_text())
-    except json.JSONDecodeError:
-        return {}
+    for metadata_path in (
+        vrs_path.with_suffix(".json"),
+        vrs_path.with_suffix(vrs_path.suffix + ".json"),
+    ):
+        if not metadata_path.exists():
+            continue
+        try:
+            return json.loads(metadata_path.read_text())
+        except json.JSONDecodeError:
+            return {}
+    return {}
 
 
 def recorded_at_from_metadata(metadata: dict[str, Any], vrs_path: Path) -> str:
@@ -101,6 +113,45 @@ def discover_vrs_files(data_root: Path) -> list[Path]:
     if not data_root.exists():
         return []
     return sorted(data_root.rglob("*.vrs"))
+
+
+def adb_run(arguments: list[str], *, adb: str) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(
+            [adb, *arguments], check=True, capture_output=True, text=True
+        )
+    except FileNotFoundError as error:
+        raise RuntimeError(f"ADB command was not found: {adb}") from error
+
+
+def list_device_recordings(*, adb: str = "adb") -> list[DeviceRecording]:
+    devices = adb_run(["devices", "-l"], adb=adb).stdout.splitlines()[1:]
+    if not any(line.split(maxsplit=1)[1:2] and line.split(maxsplit=1)[1].startswith("device") for line in devices):
+        raise RuntimeError("No authorized Project Aria Gen 1 device found in adb devices -l.")
+    listing = adb_run(["shell", "ls", "-1", "/sdcard/recording"], adb=adb).stdout
+    return [
+        DeviceRecording(name=name)
+        for name in sorted(listing.splitlines())
+        if name.endswith(".vrs") and "/" not in name and name not in {".vrs", "..vrs"}
+    ]
+
+
+def download_device_recording(
+    name: str, data_root: Path, *, adb: str = "adb"
+) -> Path:
+    if not name.endswith(".vrs") or "/" in name or name in {".vrs", "..vrs"}:
+        raise ValueError("Invalid Project Aria recording name.")
+    destination = data_root.resolve()
+    destination.mkdir(parents=True, exist_ok=True)
+    adb_run(["pull", f"/sdcard/recording/{name}", str(destination)], adb=adb)
+    metadata_name = str(Path(name).with_suffix(".json"))
+    try:
+        adb_run(
+            ["pull", f"/sdcard/recording/{metadata_name}", str(destination)], adb=adb
+        )
+    except subprocess.CalledProcessError:
+        pass
+    return destination / name
 
 
 def convert_rgb_video(
@@ -178,6 +229,7 @@ class AriaBackendHandler(BaseHTTPRequestHandler):
     sync_on_query: bool
     converter: str
     aria_cli: str
+    adb: str
 
     def end_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -208,10 +260,24 @@ class AriaBackendHandler(BaseHTTPRequestHandler):
             self.handle_sessions(parsed.query)
             return
 
+        if parsed.path == "/api/device-sessions":
+            self.handle_device_sessions()
+            return
+
         if parsed.path.startswith("/recordings/"):
             self.handle_recording(parsed.path)
             return
 
+        self.write_json({"error": "Not found"}, status=404)
+
+    def do_POST(self) -> None:
+        parsed = urlparse(self.path)
+        prefix = "/api/device-sessions/"
+        suffix = "/download"
+        if parsed.path.startswith(prefix) and parsed.path.endswith(suffix):
+            name = unquote(parsed.path[len(prefix) : -len(suffix)]).strip("/")
+            self.handle_device_download(name, parsed.query)
+            return
         self.write_json({"error": "Not found"}, status=404)
 
     def handle_sessions(self, query: str) -> None:
@@ -232,7 +298,7 @@ class AriaBackendHandler(BaseHTTPRequestHandler):
                 converter=self.converter,
             )
             self.write_json({"sessions": [session.to_response() for session in sessions]})
-        except subprocess.CalledProcessError as error:
+        except (subprocess.CalledProcessError, RuntimeError, ValueError) as error:
             self.write_json(
                 {
                     "error": "Project Aria command failed",
@@ -241,6 +307,41 @@ class AriaBackendHandler(BaseHTTPRequestHandler):
                 },
                 status=500,
             )
+
+    def handle_device_sessions(self) -> None:
+        try:
+            sessions = list_device_recordings(adb=self.adb)
+            self.write_json({"sessions": [session.to_response() for session in sessions]})
+        except (subprocess.CalledProcessError, RuntimeError) as error:
+            self.write_json({"error": str(error), "sessions": []}, status=503)
+
+    def handle_device_download(self, name: str, query: str) -> None:
+        params = parse_qs(query)
+        participant_id = params.get("participantId", [""])[0].strip()
+        task_plan_id = params.get("taskPlanId", [""])[0].strip()
+        try:
+            vrs_path = download_device_recording(name, self.data_root, adb=self.adb)
+            session_id = slugify(vrs_path.stem)
+            session = next(
+                (
+                    item
+                    for item in build_sessions(
+                        data_root=self.data_root,
+                        output_root=self.output_root,
+                        request_origin=self.request_origin(),
+                        participant_id=participant_id,
+                        task_plan_id=task_plan_id,
+                        converter=self.converter,
+                    )
+                    if item.id == session_id
+                ),
+                None,
+            )
+            if session is None:
+                raise RuntimeError("The selected recording could not be prepared.")
+            self.write_json({"session": session.to_response()})
+        except (subprocess.CalledProcessError, RuntimeError, ValueError) as error:
+            self.write_json({"error": str(error)}, status=500)
 
     def handle_recording(self, path: str) -> None:
         parts = [unquote(part) for part in path.split("/") if part]
@@ -314,6 +415,7 @@ def make_server(args: argparse.Namespace) -> ThreadingHTTPServer:
             "sync_on_query": args.sync_on_query,
             "converter": args.converter,
             "aria_cli": args.aria_cli,
+            "adb": args.adb,
         },
     )
     return ThreadingHTTPServer((args.host, args.port), handler)
@@ -332,6 +434,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sync-on-query", action="store_true")
     parser.add_argument("--converter", default=os.environ.get("VRS_TO_MP4", "vrs_to_mp4"))
     parser.add_argument("--aria-cli", default=os.environ.get("ARIA_GEN2", "aria_gen2"))
+    parser.add_argument("--adb", default=os.environ.get("ADB", "adb"))
     return parser.parse_args()
 
 

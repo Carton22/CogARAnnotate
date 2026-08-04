@@ -15,10 +15,12 @@ import {
   createUploadSession,
   formatTimecode,
   isStepComplete,
+  normalizeDeviceSessionResponse,
   normalizeSessionResponse,
   setStepEnd,
   setStepStart,
   type CognitiveState,
+  type DeviceRecording,
   type RecordingSession,
   type RelianceType,
   type StepAnnotation,
@@ -99,6 +101,9 @@ export default function Home() {
   >("idle");
   const [statusMessage, setStatusMessage] = useState("Ready to load sessions.");
   const [sessions, setSessions] = useState<RecordingSession[]>([]);
+  const [deviceSessions, setDeviceSessions] = useState<DeviceRecording[]>([]);
+  const [selectedDeviceSession, setSelectedDeviceSession] =
+    useState<DeviceRecording | null>(null);
   const [selectedSession, setSelectedSession] =
     useState<RecordingSession | null>(null);
   const [annotationsBySession, setAnnotationsBySession] = useState<
@@ -269,7 +274,7 @@ export default function Home() {
     }
 
     setQueryStatus("loading");
-    setStatusMessage("Querying processed Project Aria sessions...");
+    setStatusMessage("Querying Project Aria Gen 1 recordings on the connected glasses...");
 
     try {
       if (!backendEndpoint.trim()) {
@@ -286,30 +291,20 @@ export default function Home() {
         return;
       }
 
-      const params = new URLSearchParams({
-        participantId: participantId.trim(),
-        taskPlanId: activePlan.id,
-      });
       const endpoint = backendEndpoint.trim().replace(/\?$/, "");
-      const separator = endpoint.includes("?") ? "&" : "?";
-      const response = await fetch(`${endpoint}${separator}${params.toString()}`);
+      const deviceEndpoint = endpoint.replace(/\/api\/sessions(?:\?.*)?$/, "/api/device-sessions");
+      const response = await fetch(deviceEndpoint);
       if (!response.ok) {
         throw new Error(`Session query failed with ${response.status}`);
       }
-      const normalized = normalizeSessionResponse(await response.json()).filter(
-        (session) => session.taskPlanId === activePlan.id,
-      );
-      const fallbackDraft = createDraftSession({
-        participantId: participantId.trim(),
-        taskPlanId: activePlan.id,
-      });
-      setSessions(normalized);
-      selectSession(normalized[0] ?? fallbackDraft);
+      const normalized = normalizeDeviceSessionResponse(await response.json());
+      setDeviceSessions(normalized);
+      setSelectedDeviceSession(normalized[0] ?? null);
       setQueryStatus(normalized.length > 0 ? "ready" : "empty");
       setStatusMessage(
         normalized.length > 0
-          ? `${normalized.length} processed session${normalized.length === 1 ? "" : "s"} found.`
-          : "No processed sessions found. Continue annotating locally or upload an RGB view video.",
+          ? `${normalized.length} recording${normalized.length === 1 ? "" : "s"} found on the glasses. Select one to download.`
+          : "No recordings found on the connected glasses. Upload RGB remains available.",
       );
     } catch (error) {
       setQueryStatus("error");
@@ -319,12 +314,42 @@ export default function Home() {
           : "Session query failed. Upload remains available.",
       );
       setSessions([]);
+      setDeviceSessions([]);
+      setSelectedDeviceSession(null);
       selectSession(
         createDraftSession({
           participantId: participantId.trim() || "P01",
           taskPlanId: activePlan.id,
         }),
       );
+    }
+  };
+
+  const downloadSelectedSession = async () => {
+    if (!selectedDeviceSession) return;
+    setQueryStatus("loading");
+    setStatusMessage(`Downloading ${selectedDeviceSession.name} from the glasses...`);
+    try {
+      const endpoint = backendEndpoint.trim().replace(/\?$/, "");
+      const deviceEndpoint = endpoint.replace(/\/api\/sessions(?:\?.*)?$/, "/api/device-sessions");
+      const params = new URLSearchParams({
+        participantId: participantId.trim(),
+        taskPlanId: activePlan.id,
+      });
+      const response = await fetch(
+        `${deviceEndpoint}/${encodeURIComponent(selectedDeviceSession.name)}/download?${params}`,
+        { method: "POST" },
+      );
+      if (!response.ok) throw new Error(`Recording download failed with ${response.status}`);
+      const session = normalizeSessionResponse({ sessions: [(await response.json()).session] })[0];
+      if (!session) throw new Error("The downloaded recording did not include an RGB video.");
+      setSessions([session]);
+      selectSession(session);
+      setQueryStatus("ready");
+      setStatusMessage(`${selectedDeviceSession.name} is ready for annotation.`);
+    } catch (error) {
+      setQueryStatus("error");
+      setStatusMessage(error instanceof Error ? error.message : "Recording download failed.");
     }
   };
 
@@ -562,6 +587,28 @@ export default function Home() {
         <div className={`status-line status-${queryStatus}`}>
           <span aria-hidden="true" />
           {statusMessage}
+        </div>
+        <div className="session-list" aria-label="Device recordings">
+            <strong>Device recordings</strong>
+            {deviceSessions.length > 0 ? deviceSessions.map((session) => (
+              <button
+                type="button"
+                className={selectedDeviceSession?.name === session.name ? "is-selected" : ""}
+                onClick={() => setSelectedDeviceSession(session)}
+                key={session.name}
+              >
+                <strong>{session.name}</strong>
+                <small>On connected glasses</small>
+              </button>
+            )) : <small>Query the connected glasses to select a recording.</small>}
+            <button
+              type="button"
+              className="task-start-button"
+              onClick={downloadSelectedSession}
+              disabled={!selectedDeviceSession || queryStatus === "loading"}
+            >
+              Download selected
+            </button>
         </div>
         {sessions.length > 0 && (
           <div className="session-list">

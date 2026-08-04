@@ -39,6 +39,8 @@ test("server-renders the CogAR annotation console shell", async () => {
   assert.match(html, /Step annotations/);
   assert.match(html, /Export CSV/);
   assert.match(html, /Upload RGB/);
+  assert.match(html, /Device recordings/);
+  assert.match(html, /Download selected/);
 });
 
 test("rendered console does not include the removed starter skeleton", async () => {

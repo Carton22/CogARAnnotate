@@ -36,6 +36,15 @@ test("normalizes backend session responses", () => {
   assert.equal(normalized[0].quality?.rgbCameraScore, 100);
 });
 
+test("normalizes selectable Gen 1 device recordings", () => {
+  assert.deepEqual(
+    model.normalizeDeviceSessionResponse({
+      sessions: [{ name: "P01_sandwich.vrs" }, { name: "" }, { name: "notes.txt" }],
+    }),
+    [{ name: "P01_sandwich.vrs" }],
+  );
+});
+
 test("creates browser-local upload sessions", () => {
   const upload = model.createUploadSession({
     fileName: "rgb-view.mp4",

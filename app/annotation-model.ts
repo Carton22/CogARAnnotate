@@ -34,6 +34,10 @@ export type RecordingSession = {
   source: "backend" | "manual-upload" | "draft";
 };
 
+export type DeviceRecording = {
+  name: string;
+};
+
 export type UploadSessionInput = {
   fileName: string;
   objectUrl: string;
@@ -155,6 +159,15 @@ export function normalizeSessionResponse(payload: unknown): RecordingSession[] {
       };
     })
     .filter((item) => item.id && item.rgbVideoUrl);
+}
+
+export function normalizeDeviceSessionResponse(payload: unknown): DeviceRecording[] {
+  if (!isRecord(payload) || !Array.isArray(payload.sessions)) return [];
+
+  return payload.sessions
+    .filter(isRecord)
+    .map((item) => ({ name: stringValue(item.name) }))
+    .filter((item) => item.name.endsWith(".vrs"));
 }
 
 export function createUploadSession(

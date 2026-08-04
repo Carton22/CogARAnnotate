@@ -37,27 +37,30 @@ For each `.vrs` file, it creates an RGB MP4 in:
 
 The annotation app can then query sessions using its default backend endpoint.
 
-## Sync From Connected Glasses
+## Connected Project Aria Gen 1 Glasses
 
-Connect the Project Aria glasses to the laptop, then start the backend with:
-
-```bash
-scripts/start_aria_backend.sh --sync-on-query
-```
-
-Each session query will run:
+Connect the Gen 1 glasses by USB, then verify that ADB sees an authorized
+device:
 
 ```bash
-aria_gen2 recording download-all -o ../data/raw
+/opt/homebrew/bin/adb devices -l
 ```
 
-After download, the backend scans the `.vrs` files and runs:
+Start the local backend:
 
 ```bash
-vrs_to_mp4 --stream_id 214-1
+scripts/start_aria_backend.sh --adb /opt/homebrew/bin/adb
 ```
 
-The frontend receives browser-playable RGB video URLs.
+The annotation page's **Query sessions** button only lists VRS files in
+`/sdcard/recording`; it does not transfer anything. Select one recording and
+click **Download selected** to copy only that VRS file and its JSON metadata,
+convert RGB stream `214-1` to MP4, and load it into the annotator. The backend
+never deletes recordings from the glasses.
+
+If `adb devices -l` has no `device` row, reconnect the glasses directly (not
+through a hub), confirm the data cable and USB mode, and wait for the device to
+finish charging/authorizing before querying again.
 
 ## Custom Paths
 
