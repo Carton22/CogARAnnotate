@@ -21,6 +21,10 @@ import {
   type RecordingSession,
   type StepAnnotation,
 } from "./annotation-model";
+import {
+  DEFAULT_ANNOTATION_SHEET_SYNC_URL,
+  publishAnnotations,
+} from "./annotation-sync.mjs";
 import { planForParticipant, plans, type PlanId } from "./task-plans";
 
 // v2 clears pre-randomization drafts whose fixed Boba/Shelf step names would
@@ -55,6 +59,7 @@ type SavedState = {
   sessions: RecordingSession[];
   selectedSession?: RecordingSession;
   annotationsBySession: Record<string, Record<number, StepAnnotation>>;
+  sheetSyncUrl?: string;
 };
 
 type SpeechRecognitionAlternative = {
@@ -131,6 +136,10 @@ export default function Home() {
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [hydrated, setHydrated] = useState(false);
   const [recordingStep, setRecordingStep] = useState<number | null>(null);
+  const [sheetSyncUrl, setSheetSyncUrl] = useState(DEFAULT_ANNOTATION_SHEET_SYNC_URL);
+  const [sheetSyncStatus, setSheetSyncStatus] = useState<
+    "off" | "ready" | "syncing" | "sent" | "failed"
+  >(DEFAULT_ANNOTATION_SHEET_SYNC_URL ? "ready" : "off");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
@@ -177,6 +186,10 @@ export default function Home() {
           setSessions([]);
           setSelectedSession(null);
           setAnnotationsBySession(parsed.annotationsBySession ?? {});
+          if (typeof parsed.sheetSyncUrl === "string") {
+            setSheetSyncUrl(parsed.sheetSyncUrl);
+            setSheetSyncStatus(parsed.sheetSyncUrl.trim() ? "ready" : "off");
+          }
         } catch {
           window.localStorage.removeItem(STORAGE_KEY);
         }
@@ -214,6 +227,7 @@ export default function Home() {
         sessions: [],
         selectedSession: undefined,
         annotationsBySession,
+        sheetSyncUrl,
       }),
     );
   }, [
@@ -221,6 +235,7 @@ export default function Home() {
     annotationsBySession,
     hydrated,
     participantId,
+    sheetSyncUrl,
   ]);
 
   useEffect(() => {
@@ -443,6 +458,25 @@ export default function Home() {
     );
   };
 
+  const syncAnnotationsToSheet = async () => {
+    if (!selectedSession) return;
+    if (!sheetSyncUrl.trim()) {
+      setSheetSyncStatus("off");
+      setStatusMessage("Paste the deployed Google Apps Script URL before syncing.");
+      return;
+    }
+
+    setSheetSyncStatus("syncing");
+    try {
+      await publishAnnotations(exportRows, sheetSyncUrl);
+      setSheetSyncStatus("sent");
+      setStatusMessage(`Synced ${exportRows.length} annotation rows to Google Sheets.`);
+    } catch {
+      setSheetSyncStatus("failed");
+      setStatusMessage("Google Sheets sync failed. Check the Apps Script URL and deployment access.");
+    }
+  };
+
   const resetDraft = () => {
     if (!window.confirm("Reset the current annotation draft on this device?"))
       return;
@@ -517,6 +551,14 @@ export default function Home() {
           >
             Export JSON
           </button>
+          <button
+            className="ghost-button"
+            type="button"
+            disabled={!selectedSession || sheetSyncStatus === "syncing"}
+            onClick={syncAnnotationsToSheet}
+          >
+            Sync Sheet
+          </button>
           <button className="ghost-button" type="button" onClick={resetDraft}>
             Reset
           </button>
@@ -563,6 +605,24 @@ export default function Home() {
         <div className={`status-line status-${queryStatus}`}>
           <span aria-hidden="true" />
           {statusMessage}
+        </div>
+        <div className="sheet-sync-panel">
+          <span className={`sheet-sync-badge is-${sheetSyncStatus}`}>
+            Google Sheets sync · {sheetSyncStatus}
+          </span>
+          <label className="sheet-sync-field">
+            <span>Google Sheets sync URL</span>
+            <input
+              value={sheetSyncUrl}
+              onChange={(event) => {
+                const value = event.target.value;
+                setSheetSyncUrl(value);
+                setSheetSyncStatus(value.trim() ? "ready" : "off");
+              }}
+              placeholder="Paste deployed Google Apps Script web app URL"
+              aria-label="Google Sheets sync URL"
+            />
+          </label>
         </div>
         {sessions.length > 0 && (
           <div className="session-list">

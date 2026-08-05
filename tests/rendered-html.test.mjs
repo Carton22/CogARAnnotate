@@ -36,6 +36,9 @@ test("server-renders the CogAR annotation console shell", async () => {
   assert.match(html, /RGB VIEW/);
   assert.match(html, /Step annotations/);
   assert.match(html, /Export CSV/);
+  assert.match(html, /Sync Sheet/);
+  assert.match(html, /Google Sheets sync/);
+  assert.match(html, /Paste deployed Google Apps Script web app URL/);
   assert.match(html, /Upload RGB/);
   assert.match(html, /Play video/);
   assert.match(html, /To what extent did you rely on the AI to complete this task/);
