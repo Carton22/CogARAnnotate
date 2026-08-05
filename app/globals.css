@@ -687,7 +687,7 @@ h3 {
 
 .time-controls {
   display: grid;
-  grid-template-columns: 86px 58px 78px 58px;
+  grid-template-columns: minmax(92px, 1fr) 86px 58px 78px 58px;
   gap: 8px;
   align-self: center;
 }
@@ -709,6 +709,13 @@ h3 {
   font-family: var(--font-geist-mono), monospace;
   font-size: 11px;
   font-weight: 800;
+}
+
+.time-controls .play-video-button {
+  border-color: var(--blue);
+  background: var(--blue);
+  box-shadow: 0 8px 18px rgba(59, 130, 246, 0.2);
+  color: white;
 }
 
 .range-control {

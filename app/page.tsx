@@ -344,6 +344,7 @@ export default function Home() {
 
   const markEnd = (stepNumber: number) => {
     const seconds = readVideoSeconds();
+    videoRef.current?.pause();
     updateAnnotation(stepNumber, (current) => {
       try {
         return setStepEnd(current, seconds, nowIso());
@@ -353,6 +354,16 @@ export default function Home() {
         );
         return current;
       }
+    });
+  };
+
+  const playVideo = () => {
+    if (!videoRef.current) {
+      setStatusMessage("Upload an RGB recording before playing video.");
+      return;
+    }
+    videoRef.current.play().catch(() => {
+      setStatusMessage("Video playback could not start. Use the video controls or upload a browser-playable file.");
     });
   };
 
@@ -690,6 +701,13 @@ export default function Home() {
                   </div>
 
                   <div className="time-controls">
+                    <button
+                      type="button"
+                      className="play-video-button"
+                      onClick={playVideo}
+                    >
+                      Play video
+                    </button>
                     <button
                       type="button"
                       onClick={() => markStart(annotation.stepNumber)}
