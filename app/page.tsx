@@ -161,7 +161,6 @@ export default function Home() {
     [activePlan, annotations, participantId, selectedSession],
   );
   const completeCount = annotationRows.filter(isStepComplete).length;
-  const progress = Math.round((completeCount / activePlan.tasks.length) * 100);
   const exportRows = selectedSession
     ? buildExportRows(annotationRows, selectedSession)
     : [];
@@ -475,6 +474,22 @@ export default function Home() {
           </div>
         </div>
         <div className="session-tools">
+          <label className="participant-control">
+            <span>Participant ID</span>
+            <select
+              value={participantId}
+              onChange={(event) => selectParticipant(event.target.value)}
+            >
+              {Array.from({ length: 36 }, (_, index) => {
+                const id = `P${String(index + 1).padStart(2, "0")}`;
+                return (
+                  <option value={id} key={id}>
+                    Participant {String(index + 1).padStart(2, "0")}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
           <div className={`live-pill is-${queryStatus}`}>
             <span aria-hidden="true" />
             {selectedSession ? selectedSession.source : queryStatus}
@@ -535,51 +550,10 @@ export default function Home() {
             <p className="intro-copy">{activePlan.description}</p>
           </div>
         </div>
-        <div className="progress-card">
-          <div className="progress-copy">
-            <span>Step annotations</span>
-            <strong>{progress}%</strong>
-          </div>
-          <div
-            className="progress-track"
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={progress}
-          >
-            <span style={{ width: `${progress}%` }} />
-          </div>
-          <p>
-            {completeCount}/{activePlan.tasks.length} complete ·{" "}
-            {selectedSession ? selectedSession.id : "draft pending"}
-          </p>
-        </div>
       </section>
 
-      <section className="loader-card" aria-label="Session loader">
+      <section className="loader-card upload-card" aria-label="RGB upload">
         <div className="loader-fields">
-          <label>
-            <span>Participant ID</span>
-            <select value={participantId} onChange={(event) => selectParticipant(event.target.value)}>
-              {Array.from({ length: 36 }, (_, index) => {
-                const id = `P${String(index + 1).padStart(2, "0")}`;
-                return <option value={id} key={id}>Participant {String(index + 1).padStart(2, "0")}</option>;
-              })}
-            </select>
-          </label>
-          <label>
-            <span>Task plan</span>
-            <select
-              value={activePlan.id}
-              onChange={(event) => selectPlan(event.target.value as PlanId)}
-            >
-              {plans.map((plan) => (
-                <option value={plan.id} key={plan.id}>
-                  {plan.title}
-                </option>
-              ))}
-            </select>
-          </label>
           <label className="upload-button">
             <span aria-hidden="true">↑</span>
             Upload RGB

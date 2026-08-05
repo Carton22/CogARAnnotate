@@ -32,7 +32,7 @@ test("server-renders the CogAR annotation console shell", async () => {
   assert.match(html, /RESEARCH CONSOLE/);
   assert.match(html, /Cog<span>AR<\/span>/);
   assert.match(html, /Annotation Console/);
-  assert.match(html, /Session loader/);
+  assert.match(html, /RGB upload/);
   assert.match(html, /RGB VIEW/);
   assert.match(html, /Step annotations/);
   assert.match(html, /Export CSV/);
@@ -52,6 +52,8 @@ test("server-renders the CogAR annotation console shell", async () => {
   assert.doesNotMatch(html, /Query sessions/);
   assert.doesNotMatch(html, /Device recordings/);
   assert.doesNotMatch(html, /Download selected/);
+  assert.doesNotMatch(html, /Task plan<\/span><select/);
+  assert.doesNotMatch(html, /Step annotations<\/span><strong>0/);
   assert.match(html, /<option value="P01"/);
   assert.match(html, /<option value="P36"/);
 });
