@@ -21,42 +21,6 @@ test("formats video seconds as compact timecodes", () => {
   assert.equal(model.formatTimecode(3671), "1:01:11");
 });
 
-test("normalizes backend session responses", () => {
-  const normalized = model.normalizeSessionResponse({
-    sessions: [
-      {
-        id: "s1",
-        participantId: "P01",
-        taskPlanId: "sandwich",
-        recordedAt: "2026-08-04T14:00:00.000Z",
-        sourceVrsName: "CogAR_Test1.vrs",
-        rgbVideoUrl: "/recordings/s1/rgb.mp4",
-        durationSeconds: 128,
-        quality: {
-          rgbCameraScore: 100,
-          rgbFramesProcessed: 269,
-          rgbFramesExpected: 269,
-        },
-      },
-    ],
-  });
-
-  assert.equal(normalized.length, 1);
-  assert.equal(normalized[0].id, "s1");
-  assert.equal(normalized[0].participantId, "P01");
-  assert.equal(normalized[0].source, "backend");
-  assert.equal(normalized[0].quality?.rgbCameraScore, 100);
-});
-
-test("normalizes selectable Gen 1 device recordings", () => {
-  assert.deepEqual(
-    model.normalizeDeviceSessionResponse({
-      sessions: [{ name: "P01_sandwich.vrs" }, { name: "" }, { name: "notes.txt" }],
-    }),
-    [{ name: "P01_sandwich.vrs" }],
-  );
-});
-
 test("creates browser-local upload sessions", () => {
   const upload = model.createUploadSession({
     fileName: "rgb-view.mp4",

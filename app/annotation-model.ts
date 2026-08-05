@@ -34,10 +34,6 @@ export type RecordingSession = {
   source: "backend" | "manual-upload" | "draft";
 };
 
-export type DeviceRecording = {
-  name: string;
-};
-
 export type UploadSessionInput = {
   fileName: string;
   objectUrl: string;
@@ -108,20 +104,6 @@ const exportFields: (keyof AnnotationExportRow)[] = [
   "updated_at",
 ];
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function stringValue(value: unknown, fallback = "") {
-  return typeof value === "string" ? value : fallback;
-}
-
-function numberValue(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value)
-    ? value
-    : undefined;
-}
-
 export function formatTimecode(totalSeconds: number): string {
   const safeSeconds = Math.max(0, Math.floor(totalSeconds));
   const hours = Math.floor(safeSeconds / 3600);
@@ -133,41 +115,6 @@ export function formatTimecode(totalSeconds: number): string {
   }
 
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-export function normalizeSessionResponse(payload: unknown): RecordingSession[] {
-  if (!isRecord(payload) || !Array.isArray(payload.sessions)) return [];
-
-  return payload.sessions
-    .filter(isRecord)
-    .map((item) => {
-      const quality = isRecord(item.quality) ? item.quality : {};
-      return {
-        id: stringValue(item.id),
-        participantId: stringValue(item.participantId),
-        taskPlanId: stringValue(item.taskPlanId, "sandwich") as PlanId,
-        recordedAt: stringValue(item.recordedAt, new Date().toISOString()),
-        sourceVrsName: stringValue(item.sourceVrsName),
-        rgbVideoUrl: stringValue(item.rgbVideoUrl),
-        durationSeconds: numberValue(item.durationSeconds),
-        quality: {
-          rgbCameraScore: numberValue(quality.rgbCameraScore),
-          rgbFramesProcessed: numberValue(quality.rgbFramesProcessed),
-          rgbFramesExpected: numberValue(quality.rgbFramesExpected),
-        },
-        source: "backend" as const,
-      };
-    })
-    .filter((item) => item.id && item.rgbVideoUrl);
-}
-
-export function normalizeDeviceSessionResponse(payload: unknown): DeviceRecording[] {
-  if (!isRecord(payload) || !Array.isArray(payload.sessions)) return [];
-
-  return payload.sessions
-    .filter(isRecord)
-    .map((item) => ({ name: stringValue(item.name) }))
-    .filter((item) => item.name.endsWith(".vrs"));
 }
 
 export function createUploadSession(

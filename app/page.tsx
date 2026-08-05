@@ -15,12 +15,9 @@ import {
   createUploadSession,
   formatTimecode,
   isStepComplete,
-  normalizeDeviceSessionResponse,
-  normalizeSessionResponse,
   setStepEnd,
   setStepStart,
   type CognitiveState,
-  type DeviceRecording,
   type RecordingSession,
   type RelianceType,
   type StepAnnotation,
@@ -30,10 +27,6 @@ import { planForParticipant, plans, type PlanId } from "./task-plans";
 // v2 clears pre-randomization drafts whose fixed Boba/Shelf step names would
 // otherwise override the participant-specific sequence.
 const STORAGE_KEY = "cogar-annotation-console-v2";
-const DEFAULT_SESSIONS_ENDPOINT =
-  process.env.NEXT_PUBLIC_COGAR_SESSIONS_ENDPOINT ??
-  "http://localhost:8765/api/sessions";
-
 const relianceTypes: { value: RelianceType; label: string; short: string }[] = [
   {
     value: "appropriate-reliance",
@@ -75,7 +68,6 @@ const cognitiveStates: { value: CognitiveState; label: string }[] = [
 type SavedState = {
   activePlanId: PlanId;
   participantId: string;
-  backendEndpoint?: string;
   sessions: RecordingSession[];
   selectedSession?: RecordingSession;
   annotationsBySession: Record<string, Record<number, StepAnnotation>>;
@@ -97,15 +89,11 @@ function nowIso() {
 export default function Home() {
   const [activePlanId, setActivePlanId] = useState<PlanId>("sandwich");
   const [participantId, setParticipantId] = useState("P01");
-  const [backendEndpoint, setBackendEndpoint] = useState(DEFAULT_SESSIONS_ENDPOINT);
   const [queryStatus, setQueryStatus] = useState<
-    "idle" | "loading" | "empty" | "error" | "ready"
+    "idle" | "error" | "ready"
   >("idle");
-  const [statusMessage, setStatusMessage] = useState("Ready to load sessions.");
+  const [statusMessage, setStatusMessage] = useState("Upload an RGB recording to use video timestamps.");
   const [sessions, setSessions] = useState<RecordingSession[]>([]);
-  const [deviceSessions, setDeviceSessions] = useState<DeviceRecording[]>([]);
-  const [selectedDeviceSession, setSelectedDeviceSession] =
-    useState<DeviceRecording | null>(null);
   const [selectedSession, setSelectedSession] =
     useState<RecordingSession | null>(null);
   const [annotationsBySession, setAnnotationsBySession] = useState<
@@ -152,18 +140,10 @@ export default function Home() {
       if (saved) {
         try {
           const parsed = JSON.parse(saved) as SavedState;
-          const restoredSessions = (parsed.sessions ?? []).filter(
-            (session) => session.source === "backend",
-          );
-          const restoredSelected =
-            parsed.selectedSession?.source === "backend"
-              ? parsed.selectedSession
-              : null;
           setActivePlanId(parsed.activePlanId ?? "sandwich");
           setParticipantId(parsed.participantId ?? "P01");
-          setBackendEndpoint(parsed.backendEndpoint ?? DEFAULT_SESSIONS_ENDPOINT);
-          setSessions(restoredSessions);
-          setSelectedSession(restoredSelected);
+          setSessions([]);
+          setSelectedSession(null);
           setAnnotationsBySession(parsed.annotationsBySession ?? {});
         } catch {
           window.localStorage.removeItem(STORAGE_KEY);
@@ -199,21 +179,16 @@ export default function Home() {
       JSON.stringify({
         activePlanId,
         participantId,
-        backendEndpoint,
-        sessions: sessions.filter((session) => session.source === "backend"),
-        selectedSession:
-          selectedSession?.source === "backend" ? selectedSession : undefined,
+        sessions: [],
+        selectedSession: undefined,
         annotationsBySession,
       }),
     );
   }, [
     activePlanId,
     annotationsBySession,
-    backendEndpoint,
     hydrated,
     participantId,
-    selectedSession,
-    sessions,
   ]);
 
   const selectPlan = (planId: PlanId) => {
@@ -243,8 +218,6 @@ export default function Home() {
     });
     setParticipantId(nextParticipantId);
     setSessions([]);
-    setDeviceSessions([]);
-    setSelectedDeviceSession(null);
     setSelectedSession(draft);
     setCurrentSeconds(0);
     setDurationSeconds(0);
@@ -287,93 +260,6 @@ export default function Home() {
         },
       };
     });
-  };
-
-  const querySessions = async () => {
-    if (!participantId.trim()) {
-      setQueryStatus("error");
-      setStatusMessage("Enter a participant ID before querying sessions.");
-      return;
-    }
-
-    setQueryStatus("loading");
-    setStatusMessage("Querying Project Aria Gen 1 recordings on the connected glasses...");
-
-    try {
-      if (!backendEndpoint.trim()) {
-        const draft = createDraftSession({
-          participantId: participantId.trim(),
-          taskPlanId: activePlan.id,
-        });
-        setSessions([]);
-        selectSession(draft);
-        setQueryStatus("empty");
-        setStatusMessage(
-          "No backend endpoint is configured. Continue annotating locally or upload an RGB view video.",
-        );
-        return;
-      }
-
-      const endpoint = backendEndpoint.trim().replace(/\?$/, "");
-      const deviceEndpoint = endpoint.replace(/\/api\/sessions(?:\?.*)?$/, "/api/device-sessions");
-      const response = await fetch(deviceEndpoint);
-      if (!response.ok) {
-        throw new Error(`Session query failed with ${response.status}`);
-      }
-      const normalized = normalizeDeviceSessionResponse(await response.json());
-      setDeviceSessions(normalized);
-      setSelectedDeviceSession(normalized[0] ?? null);
-      setQueryStatus(normalized.length > 0 ? "ready" : "empty");
-      setStatusMessage(
-        normalized.length > 0
-          ? `${normalized.length} recording${normalized.length === 1 ? "" : "s"} found on the glasses. Select one to download.`
-          : "No recordings found on the connected glasses. Upload RGB remains available.",
-      );
-    } catch (error) {
-      setQueryStatus("error");
-      setStatusMessage(
-        error instanceof Error
-          ? error.message
-          : "Session query failed. Upload remains available.",
-      );
-      setSessions([]);
-      setDeviceSessions([]);
-      setSelectedDeviceSession(null);
-      selectSession(
-        createDraftSession({
-          participantId: participantId.trim() || "P01",
-          taskPlanId: activePlan.id,
-        }),
-      );
-    }
-  };
-
-  const downloadSelectedSession = async () => {
-    if (!selectedDeviceSession) return;
-    setQueryStatus("loading");
-    setStatusMessage(`Downloading ${selectedDeviceSession.name} from the glasses...`);
-    try {
-      const endpoint = backendEndpoint.trim().replace(/\?$/, "");
-      const deviceEndpoint = endpoint.replace(/\/api\/sessions(?:\?.*)?$/, "/api/device-sessions");
-      const params = new URLSearchParams({
-        participantId: participantId.trim(),
-        taskPlanId: activePlan.id,
-      });
-      const response = await fetch(
-        `${deviceEndpoint}/${encodeURIComponent(selectedDeviceSession.name)}/download?${params}`,
-        { method: "POST" },
-      );
-      if (!response.ok) throw new Error(`Recording download failed with ${response.status}`);
-      const session = normalizeSessionResponse({ sessions: [(await response.json()).session] })[0];
-      if (!session) throw new Error("The downloaded recording did not include an RGB video.");
-      setSessions([session]);
-      selectSession(session);
-      setQueryStatus("ready");
-      setStatusMessage(`${selectedDeviceSession.name} is ready for annotation.`);
-    } catch (error) {
-      setQueryStatus("error");
-      setStatusMessage(error instanceof Error ? error.message : "Recording download failed.");
-    }
   };
 
   const handleUpload = (event: ChangeEvent<HTMLInputElement>) => {
@@ -585,23 +471,6 @@ export default function Home() {
               ))}
             </select>
           </label>
-          <label className="backend-endpoint-field">
-            <span>Backend endpoint</span>
-            <input
-              value={backendEndpoint}
-              onChange={(event) => setBackendEndpoint(event.target.value)}
-              placeholder="http://localhost:8765/api/sessions"
-            />
-          </label>
-          <button
-            type="button"
-            className="task-start-button"
-            onClick={querySessions}
-            disabled={queryStatus === "loading"}
-          >
-            <span aria-hidden="true">⌕</span>
-            Query sessions
-          </button>
           <label className="upload-button">
             <span aria-hidden="true">↑</span>
             Upload RGB
@@ -611,28 +480,6 @@ export default function Home() {
         <div className={`status-line status-${queryStatus}`}>
           <span aria-hidden="true" />
           {statusMessage}
-        </div>
-        <div className="session-list" aria-label="Device recordings">
-            <strong>Device recordings</strong>
-            {deviceSessions.length > 0 ? deviceSessions.map((session) => (
-              <button
-                type="button"
-                className={selectedDeviceSession?.name === session.name ? "is-selected" : ""}
-                onClick={() => setSelectedDeviceSession(session)}
-                key={session.name}
-              >
-                <strong>{session.name}</strong>
-                <small>On connected glasses</small>
-              </button>
-            )) : <small>Query the connected glasses to select a recording.</small>}
-            <button
-              type="button"
-              className="task-start-button"
-              onClick={downloadSelectedSession}
-              disabled={!selectedDeviceSession || queryStatus === "loading"}
-            >
-              Download selected
-            </button>
         </div>
         {sessions.length > 0 && (
           <div className="session-list">
