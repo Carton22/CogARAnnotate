@@ -73,6 +73,50 @@ type SavedState = {
   annotationsBySession: Record<string, Record<number, StepAnnotation>>;
 };
 
+type SpeechRecognitionAlternative = {
+  transcript: string;
+};
+
+type SpeechRecognitionResult = {
+  readonly isFinal: boolean;
+  readonly length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+};
+
+type SpeechRecognitionResultList = {
+  readonly length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+};
+
+type SpeechRecognitionEvent = Event & {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+};
+
+type SpeechRecognitionInstance = EventTarget & {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
+
+function getSpeechRecognition() {
+  if (typeof window === "undefined") return undefined;
+  const browserWindow = window as Window & {
+    SpeechRecognition?: SpeechRecognitionConstructor;
+    webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  };
+  return browserWindow.SpeechRecognition ?? browserWindow.webkitSpeechRecognition;
+}
+
 function downloadFile(fileName: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
   const anchor = document.createElement("a");
@@ -102,7 +146,9 @@ export default function Home() {
   const [currentSeconds, setCurrentSeconds] = useState(0);
   const [durationSeconds, setDurationSeconds] = useState(0);
   const [hydrated, setHydrated] = useState(false);
+  const [recordingStep, setRecordingStep] = useState<number | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const speechRecognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
   const activePlan = planForParticipant(activePlanId, participantId);
   const annotations = useMemo(
@@ -193,6 +239,12 @@ export default function Home() {
     hydrated,
     participantId,
   ]);
+
+  useEffect(() => {
+    return () => {
+      speechRecognitionRef.current?.stop();
+    };
+  }, []);
 
   const selectPlan = (planId: PlanId) => {
     const nextPlan = plans.find((plan) => plan.id === planId) ?? plans[0];
@@ -318,6 +370,65 @@ export default function Home() {
         return current;
       }
     });
+  };
+
+  const appendNoteTranscript = (stepNumber: number, transcript: string) => {
+    const cleanTranscript = transcript.trim();
+    if (!cleanTranscript) return;
+    updateAnnotation(stepNumber, (current) => ({
+      ...current,
+      notes: [current.notes?.trim(), cleanTranscript].filter(Boolean).join(" "),
+      updatedAt: nowIso(),
+    }));
+  };
+
+  const stopSpeechInput = () => {
+    speechRecognitionRef.current?.stop();
+    speechRecognitionRef.current = null;
+    setRecordingStep(null);
+  };
+
+  const startSpeechInput = (stepNumber: number) => {
+    if (recordingStep === stepNumber) {
+      stopSpeechInput();
+      return;
+    }
+
+    speechRecognitionRef.current?.stop();
+    const SpeechRecognition = getSpeechRecognition();
+    if (!SpeechRecognition) {
+      setStatusMessage("Speech input is not supported in this browser. Type notes instead.");
+      setRecordingStep(null);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+    recognition.onresult = (event) => {
+      const transcript = Array.from(
+        { length: event.results.length - event.resultIndex },
+        (_, index) => event.results[event.resultIndex + index],
+      )
+        .filter((result) => result.isFinal)
+        .map((result) => result[0]?.transcript ?? "")
+        .join(" ");
+      appendNoteTranscript(stepNumber, transcript);
+    };
+    recognition.onerror = () => {
+      setStatusMessage("Speech transcription stopped. Check microphone permission or type notes instead.");
+      setRecordingStep(null);
+      speechRecognitionRef.current = null;
+    };
+    recognition.onend = () => {
+      setRecordingStep(null);
+      speechRecognitionRef.current = null;
+    };
+    speechRecognitionRef.current = recognition;
+    setRecordingStep(stepNumber);
+    setStatusMessage(`Listening for step ${String(stepNumber).padStart(2, "0")} notes...`);
+    recognition.start();
   };
 
   const exportJson = () => {
@@ -612,7 +723,11 @@ export default function Home() {
                   </div>
 
                   <label className="range-control">
-                    <span>Reliance {annotation.relianceAmount ?? "-"}</span>
+                    <span>Reliance on AI {annotation.relianceAmount ?? "-"}</span>
+                    <small>
+                      To what extent did you rely on the AI to complete this task?
+                      0 = Not at all; 7 = Completely
+                    </small>
                     <input
                       min={0}
                       max={7}
@@ -654,7 +769,11 @@ export default function Home() {
                   </div>
 
                   <label className="range-control">
-                    <span>Confidence {annotation.confidence ?? "-"}</span>
+                    <span>Trust in the AI {annotation.confidence ?? "-"}</span>
+                    <small>
+                      To what extent did you trust the AI&apos;s recommendations when making your decision?
+                      0 = Not at all; 7 = Completely
+                    </small>
                     <input
                       min={0}
                       max={7}
@@ -672,7 +791,10 @@ export default function Home() {
                   </label>
 
                   <label className="state-select">
-                    <span>Cognitive state</span>
+                    <span>Cognitive engagement</span>
+                    <small>
+                      To what extent did you critically evaluate the AI&apos;s instructions rather than accept them without reflection?
+                    </small>
                     <select
                       value={annotation.cognitiveState ?? ""}
                       onChange={(event) =>
@@ -693,8 +815,22 @@ export default function Home() {
                   </label>
 
                   <label className="notes-field">
-                    <span>Notes</span>
+                    <span>What&apos;s your thinking process at that step?</span>
+                    <div className="notes-toolbar">
+                      <small>Think aloud or type your notes.</small>
+                      <button
+                        type="button"
+                        className={recordingStep === annotation.stepNumber ? "is-recording" : ""}
+                        onClick={() => startSpeechInput(annotation.stepNumber)}
+                      >
+                        {recordingStep === annotation.stepNumber
+                          ? "Stop recording"
+                          : "Start speech input"}
+                      </button>
+                    </div>
                     <textarea
+                      aria-label={`Thinking process notes for step ${annotation.stepNumber}`}
+                      placeholder="What's your thinking process at that step?"
                       value={annotation.notes ?? ""}
                       onChange={(event) =>
                         updateAnnotation(annotation.stepNumber, (current) => ({

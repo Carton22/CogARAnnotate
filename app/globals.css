@@ -712,7 +712,20 @@ h3 {
 }
 
 .range-control {
+  display: grid;
+  gap: 5px;
   align-self: center;
+}
+
+.range-control small,
+.state-select small,
+.notes-toolbar small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .range-control input {
@@ -742,6 +755,8 @@ h3 {
 }
 
 .state-select {
+  display: grid;
+  gap: 5px;
   grid-column: span 1;
 }
 
@@ -750,7 +765,30 @@ h3 {
 }
 
 .notes-field {
+  display: grid;
+  gap: 8px;
   grid-column: 1 / -1;
+}
+
+.notes-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notes-toolbar button {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.notes-toolbar button.is-recording {
+  border-color: var(--coral);
+  background: #fff0ed;
+  color: var(--coral);
 }
 
 .notes-field textarea {

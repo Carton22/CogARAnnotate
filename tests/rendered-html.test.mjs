@@ -37,6 +37,11 @@ test("server-renders the CogAR annotation console shell", async () => {
   assert.match(html, /Step annotations/);
   assert.match(html, /Export CSV/);
   assert.match(html, /Upload RGB/);
+  assert.match(html, /To what extent did you rely on the AI to complete this task/);
+  assert.match(html, /To what extent did you trust the AI/);
+  assert.match(html, /To what extent did you critically evaluate the AI/);
+  assert.match(html, /What&#x27;s your thinking process at that step/);
+  assert.match(html, /Start speech input/);
   assert.doesNotMatch(html, /Backend endpoint/);
   assert.doesNotMatch(html, /Query sessions/);
   assert.doesNotMatch(html, /Device recordings/);
