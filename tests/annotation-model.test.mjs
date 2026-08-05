@@ -15,6 +15,46 @@ test("uses the same participant-stable Shelf sequence as CogARReliance", () => {
   assert.equal(p1.tasks.filter((task) => task.mainKind === "incorrect").length, 5);
 });
 
+test("uses the same participant-stable Boba sequence as CogARReliance", () => {
+  const p1 = taskPlans.planForParticipant("boba", "P01");
+  const p1Again = taskPlans.planForParticipant("boba", "1");
+  const p2 = taskPlans.planForParticipant("boba", "P02");
+
+  assert.equal(p1.tasks.length, 20);
+  assert.deepEqual(p1.tasks, p1Again.tasks);
+  assert.notDeepEqual(p1.tasks, p2.tasks);
+  assert.equal(p1.tasks.filter((task) => task.mainKind === "incorrect").length, 5);
+  assert.deepEqual(
+    p1.tasks.slice(0, 4).map((task) => task.name),
+    [
+      "Take a cup",
+      "Add white sugar to the cup",
+      "Add strawberry sugar syrup into the cup",
+      "Add boba into the cup",
+    ],
+  );
+});
+
+test("uses the same participant-stable Table sequence as CogARReliance", () => {
+  const p1 = taskPlans.planForParticipant("table", "P01");
+  const p1Again = taskPlans.planForParticipant("table", "1");
+  const p2 = taskPlans.planForParticipant("table", "P02");
+
+  assert.equal(p1.tasks.length, 20);
+  assert.deepEqual(p1.tasks, p1Again.tasks);
+  assert.notDeepEqual(p1.tasks, p2.tasks);
+  assert.equal(p1.tasks.filter((task) => task.mainKind === "incorrect").length, 5);
+  assert.deepEqual(
+    p1.tasks.slice(0, 4).map((task) => task.name),
+    [
+      "Insert a number four piece at slot one of a number three piece",
+      "Connect the other side of the number four piece with a new number three piece",
+      "Take another number four piece",
+      "Insert a number seven piece at slot two of a number three piece",
+    ],
+  );
+});
+
 test("formats video seconds as compact timecodes", () => {
   assert.equal(model.formatTimecode(0), "00:00");
   assert.equal(model.formatTimecode(75.4), "01:15");

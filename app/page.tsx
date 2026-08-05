@@ -113,17 +113,20 @@ export default function Home() {
     () =>
       activePlan.tasks.map((task, index) => {
         const stepNumber = index + 1;
-        return (
-          annotations[stepNumber] ?? {
+        const saved = annotations[stepNumber];
+        return {
+          ...(saved ?? {
             sessionId: selectedSession?.id ?? "",
-            participantId,
-            taskPlanId: activePlan.id,
             stepNumber,
-            stepName: task.name,
             notes: "",
             updatedAt: nowIso(),
-          }
-        );
+          }),
+          sessionId: selectedSession?.id ?? "",
+          participantId,
+          taskPlanId: activePlan.id,
+          stepNumber,
+          stepName: task.name,
+        };
       }),
     [activePlan, annotations, participantId, selectedSession],
   );
