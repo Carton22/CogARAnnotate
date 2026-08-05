@@ -35,7 +35,7 @@ async function loadScript() {
             const sheet = {
               getRange() {
                 return {
-                  getValues: () => [Array(18).fill("")],
+                  getValues: () => [Array(15).fill("")],
                   setValues: (rows) => headerWrites.push({ sheet: name, rows }),
                 };
               },
@@ -89,18 +89,30 @@ test("appends annotation rows to participant sheets", async () => {
   assert.deepEqual(JSON.parse(response.value), { ok: true, appended: 1 });
   assert.equal(headerWrites.length, 1);
   assert.equal(headerWrites[0].sheet, "P01");
-  assert.deepEqual(Array.from(headerWrites[0].rows[0]).slice(0, 5), [
+  assert.deepEqual(Array.from(headerWrites[0].rows[0]), [
     "session_id",
     "participant_id",
     "task_plan_id",
     "step_number",
     "step_name",
+    "start_seconds",
+    "start_timecode",
+    "end_seconds",
+    "end_timecode",
+    "duration_seconds",
+    "reliance",
+    "confidence",
+    "cognitive_engagement",
+    "cognitive_state",
+    "notes",
   ]);
   assert.equal(appendedRows.length, 1);
   assert.equal(appendedRows[0].sheet, "P01");
+  assert.equal(appendedRows[0].row.length, 15);
   assert.equal(appendedRows[0].row[0], "draft-P01-sandwich");
   assert.equal(appendedRows[0].row[1], "P01");
   assert.equal(appendedRows[0].row[14], "checked the recommendation");
+  assert.equal(appendedRows[0].row[10], 5);
 });
 
 test("rejects annotation posts without rows", async () => {

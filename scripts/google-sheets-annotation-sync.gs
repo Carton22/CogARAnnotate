@@ -9,14 +9,11 @@ const HEADERS = [
   "end_seconds",
   "end_timecode",
   "duration_seconds",
-  "reliance_amount",
+  "reliance",
   "confidence",
   "cognitive_engagement",
   "cognitive_state",
   "notes",
-  "source_vrs_name",
-  "rgb_video_url",
-  "updated_at",
 ];
 
 function participantSheetName(participantId) {
@@ -54,7 +51,9 @@ function rowValue(row, field) {
 function appendAnnotationRow(spreadsheet, row) {
   const sheet = sheetForParticipant(spreadsheet, row.participant_id);
   ensureHeaders(sheet);
-  sheet.appendRow(HEADERS.map((field) => rowValue(row, field)));
+  sheet.appendRow(HEADERS.map((field) => (
+    field === "reliance" ? rowValue(row, "reliance_amount") : rowValue(row, field)
+  )));
 }
 
 function doPost(event) {
