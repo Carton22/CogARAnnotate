@@ -19,7 +19,6 @@ import {
   setStepStart,
   type CognitiveState,
   type RecordingSession,
-  type RelianceType,
   type StepAnnotation,
 } from "./annotation-model";
 import { planForParticipant, plans, type PlanId } from "./task-plans";
@@ -27,21 +26,6 @@ import { planForParticipant, plans, type PlanId } from "./task-plans";
 // v2 clears pre-randomization drafts whose fixed Boba/Shelf step names would
 // otherwise override the participant-specific sequence.
 const STORAGE_KEY = "cogar-annotation-console-v2";
-const relianceTypes: { value: RelianceType; label: string; short: string }[] = [
-  {
-    value: "appropriate-reliance",
-    label: "Appropriate Reliance",
-    short: "App Rely",
-  },
-  {
-    value: "appropriate-rejection",
-    label: "Appropriate Rejection",
-    short: "App Reject",
-  },
-  { value: "overreliance", label: "Overreliance", short: "Over" },
-  { value: "under-reliance", label: "Under reliance", short: "Under" },
-];
-
 const cognitiveStates: { value: CognitiveState; label: string }[] = [
   {
     value: "thinking-verifying-suggestion",
@@ -723,7 +707,10 @@ export default function Home() {
                   </div>
 
                   <label className="range-control">
-                    <span>Reliance on AI {annotation.relianceAmount ?? "-"}</span>
+                    <span>
+                      Reliance on AI
+                      <output>{annotation.relianceAmount ?? "-"}</output>
+                    </span>
                     <small>
                       To what extent did you rely on the AI to complete this task?
                       0 = Not at all; 7 = Completely
@@ -744,32 +731,11 @@ export default function Home() {
                     />
                   </label>
 
-                  <div className="segmented-control">
-                    {relianceTypes.map((item) => (
-                      <button
-                        type="button"
-                        className={
-                          annotation.relianceType === item.value
-                            ? "is-selected"
-                            : ""
-                        }
-                        title={item.label}
-                        onClick={() =>
-                          updateAnnotation(annotation.stepNumber, (current) => ({
-                            ...current,
-                            relianceType: item.value,
-                            updatedAt: nowIso(),
-                          }))
-                        }
-                        key={item.value}
-                      >
-                        {item.short}
-                      </button>
-                    ))}
-                  </div>
-
                   <label className="range-control">
-                    <span>Trust in the AI {annotation.confidence ?? "-"}</span>
+                    <span>
+                      Trust in the AI
+                      <output>{annotation.confidence ?? "-"}</output>
+                    </span>
                     <small>
                       To what extent did you trust the AI&apos;s recommendations when making your decision?
                       0 = Not at all; 7 = Completely
@@ -790,10 +756,35 @@ export default function Home() {
                     />
                   </label>
 
-                  <label className="state-select">
-                    <span>Cognitive engagement</span>
+                  <label className="range-control">
+                    <span>
+                      Cognitive engagement
+                      <output>{annotation.cognitiveEngagement ?? "-"}</output>
+                    </span>
                     <small>
                       To what extent did you critically evaluate the AI&apos;s instructions rather than accept them without reflection?
+                      0 = Not at all; 7 = Completely
+                    </small>
+                    <input
+                      min={0}
+                      max={7}
+                      step={1}
+                      type="range"
+                      value={annotation.cognitiveEngagement ?? 0}
+                      onChange={(event) =>
+                        updateAnnotation(annotation.stepNumber, (current) => ({
+                          ...current,
+                          cognitiveEngagement: Number(event.target.value),
+                          updatedAt: nowIso(),
+                        }))
+                      }
+                    />
+                  </label>
+
+                  <label className="state-select">
+                    <span>Cognitive state</span>
+                    <small>
+                      What kind of cognitive states you are in?
                     </small>
                     <select
                       value={annotation.cognitiveState ?? ""}

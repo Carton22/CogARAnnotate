@@ -57,6 +57,7 @@ export type StepAnnotation = {
   relianceAmount?: number;
   relianceType?: RelianceType;
   confidence?: number;
+  cognitiveEngagement?: number;
   cognitiveState?: CognitiveState;
   notes?: string;
   updatedAt: string;
@@ -74,8 +75,8 @@ export type AnnotationExportRow = {
   end_timecode: string;
   duration_seconds: number | "";
   reliance_amount: number | "";
-  reliance_type: string;
   confidence: number | "";
+  cognitive_engagement: number | "";
   cognitive_state: string;
   notes: string;
   source_vrs_name: string;
@@ -95,8 +96,8 @@ const exportFields: (keyof AnnotationExportRow)[] = [
   "end_timecode",
   "duration_seconds",
   "reliance_amount",
-  "reliance_type",
   "confidence",
+  "cognitive_engagement",
   "cognitive_state",
   "notes",
   "source_vrs_name",
@@ -200,8 +201,8 @@ export function isStepComplete(annotation: StepAnnotation): boolean {
     typeof annotation.startSeconds === "number" &&
     typeof annotation.endSeconds === "number" &&
     typeof annotation.relianceAmount === "number" &&
-    Boolean(annotation.relianceType) &&
     typeof annotation.confidence === "number" &&
+    typeof annotation.cognitiveEngagement === "number" &&
     Boolean(annotation.cognitiveState)
   );
 }
@@ -233,9 +234,12 @@ export function buildExportRows(
         typeof annotation.relianceAmount === "number"
           ? annotation.relianceAmount
           : "",
-      reliance_type: annotation.relianceType ?? "",
       confidence:
         typeof annotation.confidence === "number" ? annotation.confidence : "",
+      cognitive_engagement:
+        typeof annotation.cognitiveEngagement === "number"
+          ? annotation.cognitiveEngagement
+          : "",
       cognitive_state: annotation.cognitiveState ?? "",
       notes: annotation.notes ?? "",
       source_vrs_name: session.sourceVrsName,

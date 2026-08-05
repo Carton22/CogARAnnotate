@@ -40,8 +40,13 @@ test("server-renders the CogAR annotation console shell", async () => {
   assert.match(html, /To what extent did you rely on the AI to complete this task/);
   assert.match(html, /To what extent did you trust the AI/);
   assert.match(html, /To what extent did you critically evaluate the AI/);
+  assert.match(html, /What kind of cognitive states you are in/);
   assert.match(html, /What&#x27;s your thinking process at that step/);
   assert.match(html, /Start speech input/);
+  assert.doesNotMatch(html, /App Rely/);
+  assert.doesNotMatch(html, /App Reject/);
+  assert.doesNotMatch(html, /Overreliance/);
+  assert.doesNotMatch(html, /Under reliance/);
   assert.doesNotMatch(html, /Backend endpoint/);
   assert.doesNotMatch(html, /Query sessions/);
   assert.doesNotMatch(html, /Device recordings/);

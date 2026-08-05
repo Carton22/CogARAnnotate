@@ -99,8 +99,8 @@ test("detects complete step annotations and validates end time", () => {
     startSeconds: 1,
     endSeconds: 5,
     relianceAmount: 4,
-    relianceType: "appropriate-reliance",
     confidence: 6,
+    cognitiveEngagement: 5,
     cognitiveState: "taking-actions",
     notes: "",
     updatedAt: "2026-08-04T14:05:00.000Z",
@@ -109,6 +109,10 @@ test("detects complete step annotations and validates end time", () => {
   assert.equal(model.isStepComplete(completeAnnotation), true);
   assert.equal(
     model.isStepComplete({ ...completeAnnotation, cognitiveState: undefined }),
+    false,
+  );
+  assert.equal(
+    model.isStepComplete({ ...completeAnnotation, cognitiveEngagement: undefined }),
     false,
   );
   assert.throws(
@@ -147,8 +151,8 @@ test("builds export rows and CSV with stable field names", () => {
     startSeconds: 1,
     endSeconds: 5,
     relianceAmount: 4,
-    relianceType: "appropriate-reliance",
     confidence: 6,
+    cognitiveEngagement: 5,
     cognitiveState: "taking-actions",
     notes: "participant checked the plate",
     updatedAt: "2026-08-04T14:05:00.000Z",
@@ -167,8 +171,8 @@ test("builds export rows and CSV with stable field names", () => {
     "end_timecode",
     "duration_seconds",
     "reliance_amount",
-    "reliance_type",
     "confidence",
+    "cognitive_engagement",
     "cognitive_state",
     "notes",
     "source_vrs_name",
