@@ -764,8 +764,8 @@ export default function Home() {
                       <output>{annotation.relianceAmount ?? "-"}</output>
                     </span>
                     <small>
-                      To what extent did you rely on the AI to complete this task?
-                      0 = Not at all; 7 = Completely
+                      To what extent did you rely on the AI during this step? 0 =
+                      Not at all; 7 = Completely
                     </small>
                     <input
                       min={0}
@@ -789,8 +789,8 @@ export default function Home() {
                       <output>{annotation.confidence ?? "-"}</output>
                     </span>
                     <small>
-                      To what extent did you trust the AI&apos;s recommendations when making your decision?
-                      0 = Not at all; 7 = Completely
+                      To what extent did you trust the AI&apos;s instructions? 0 = Not
+                      at all; 7 = Completely
                     </small>
                     <input
                       min={0}
@@ -814,8 +814,8 @@ export default function Home() {
                       <output>{annotation.cognitiveEngagement ?? "-"}</output>
                     </span>
                     <small>
-                      To what extent did you critically evaluate the AI&apos;s instructions rather than accept them without reflection?
-                      0 = Not at all; 7 = Completely
+                      To what extent did you critically evaluate the AI&apos;s
+                      instructions? 0 = Not at all; 7 = Completely
                     </small>
                     <input
                       min={0}
