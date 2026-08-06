@@ -186,3 +186,87 @@ test("builds export rows and CSV with stable field names", () => {
   assert.match(csv, /^"session_id","participant_id","task_plan_id"/);
   assert.match(csv, /"participant checked the plate"/);
 });
+
+test("derives step ranges from the last AI audio timestamp per step", () => {
+  const csv = [
+    "participant_id,plan_id,plan,step,step_name,action,detail,event_timestamp_iso",
+    "2,boba,Boba tea plan,1,Take a cup,AI audio,Take a cup,2026-08-05T21:51:11.000Z",
+    "2,boba,Boba tea plan,1,Take a cup,AI audio,Take a cup again,2026-08-05T21:51:14.500Z",
+    "2,boba,Boba tea plan,1,Take a cup,AI accepted,AI instruction,2026-08-05T21:51:20.000Z",
+    "2,boba,Boba tea plan,2,Add syrup,AI audio,Add syrup,2026-08-05T21:51:32.250Z",
+    "2,shelf,Shelf assembly plan,1,Classify,AI audio,Classify,2026-08-05T21:52:00.000Z",
+    "3,boba,Boba tea plan,1,Take a cup,AI audio,Take a cup,2026-08-05T21:53:00.000Z",
+  ].join("\n");
+
+  const ranges = model.deriveStepTimingRangesFromCsv(csv, {
+    participantId: "P02",
+    taskPlanId: "boba",
+    videoStartIso: "2026-08-05T21:51:00.000Z",
+  });
+
+  assert.deepEqual(ranges, [
+    {
+      stepNumber: 1,
+      stepName: "Take a cup",
+      startSeconds: 0,
+      endSeconds: 16,
+      endTimestampIso: "2026-08-05T21:51:14.500Z",
+    },
+    {
+      stepNumber: 2,
+      stepName: "Add syrup",
+      startSeconds: 16,
+      endSeconds: 34,
+      endTimestampIso: "2026-08-05T21:51:32.250Z",
+    },
+  ]);
+});
+
+test("applies derived step ranges to existing annotations", () => {
+  const session = {
+    id: "upload-1",
+    participantId: "P02",
+    taskPlanId: "boba",
+    recordedAt: "2026-08-05T21:51:00.000Z",
+    sourceVrsName: "pilot2_boba.MP4",
+    rgbVideoUrl: "blob:test",
+    source: "manual-upload",
+  };
+  const plan = taskPlans.planForParticipant("boba", "P02");
+  const annotations = model.createEmptyAnnotations(session, plan);
+
+  const updated = model.applyStepTimingRanges(annotations, [
+    {
+      stepNumber: 1,
+      stepName: "Take a cup",
+      startSeconds: 0,
+      endSeconds: 14,
+      endTimestampIso: "2026-08-05T21:51:14.500Z",
+    },
+  ], "2026-08-06T14:00:00.000Z");
+
+  assert.equal(updated[1].startSeconds, 0);
+  assert.equal(updated[1].endSeconds, 14);
+  assert.equal(updated[1].updatedAt, "2026-08-06T14:00:00.000Z");
+  assert.equal(updated[2].startSeconds, undefined);
+});
+
+test("extracts QuickTime video start ISO from mvhd creation time metadata", () => {
+  const quickTimeEpochOffsetSeconds = 2082844800;
+  const unixSeconds = Date.parse("2026-08-06T15:06:38.000Z") / 1000;
+  const creationSeconds = unixSeconds + quickTimeEpochOffsetSeconds;
+  const mvhdPayload = new Uint8Array(24);
+  const view = new DataView(mvhdPayload.buffer);
+  view.setUint8(0, 0);
+  view.setUint32(4, creationSeconds);
+  const atom = new Uint8Array(8 + mvhdPayload.length);
+  const atomView = new DataView(atom.buffer);
+  atomView.setUint32(0, atom.length);
+  atom.set(Buffer.from("mvhd"), 4);
+  atom.set(mvhdPayload, 8);
+
+  assert.equal(
+    model.extractQuickTimeStartIso(atom.buffer),
+    "2026-08-06T15:06:38.000Z",
+  );
+});

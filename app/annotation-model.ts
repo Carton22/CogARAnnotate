@@ -84,6 +84,20 @@ export type AnnotationExportRow = {
   updated_at: string;
 };
 
+export type StepTimingRange = {
+  stepNumber: number;
+  stepName: string;
+  startSeconds: number;
+  endSeconds: number;
+  endTimestampIso: string;
+};
+
+export type StepTimingImportOptions = {
+  participantId: string;
+  taskPlanId: PlanId;
+  videoStartIso: string;
+};
+
 const exportFields: (keyof AnnotationExportRow)[] = [
   "session_id",
   "participant_id",
@@ -104,6 +118,9 @@ const exportFields: (keyof AnnotationExportRow)[] = [
   "rgb_video_url",
   "updated_at",
 ];
+
+const aiAudioInstructionDelaySeconds = 2;
+const quickTimeEpochOffsetSeconds = 2082844800;
 
 export function formatTimecode(totalSeconds: number): string {
   const safeSeconds = Math.max(0, Math.floor(totalSeconds));
@@ -194,6 +211,184 @@ export function setStepEnd(
     endSeconds,
     updatedAt,
   };
+}
+
+function parseCsvRows(csv: string): Record<string, string>[] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let index = 0; index < csv.length; index += 1) {
+    const character = csv[index];
+    const nextCharacter = csv[index + 1];
+
+    if (quoted) {
+      if (character === '"' && nextCharacter === '"') {
+        cell += '"';
+        index += 1;
+      } else if (character === '"') {
+        quoted = false;
+      } else {
+        cell += character;
+      }
+      continue;
+    }
+
+    if (character === '"') {
+      quoted = true;
+    } else if (character === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (character === "\n") {
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else if (character !== "\r") {
+      cell += character;
+    }
+  }
+
+  if (cell || row.length > 0) {
+    row.push(cell);
+    rows.push(row);
+  }
+
+  const [headers = [], ...dataRows] = rows.filter((values) =>
+    values.some((value) => value.trim()),
+  );
+  return dataRows.map((values) =>
+    Object.fromEntries(headers.map((header, index) => [header.trim(), values[index]?.trim() ?? ""])),
+  );
+}
+
+function normalizeParticipantId(participantId: string): string {
+  const numeric = Number(String(participantId).replace(/\D/g, ""));
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return `P${String(numeric).padStart(2, "0")}`;
+  }
+  return participantId.trim().toUpperCase();
+}
+
+function secondsBetween(startIso: string, endIso: string): number {
+  const startMs = Date.parse(startIso);
+  const endMs = Date.parse(endIso);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) {
+    throw new Error("Imported timing data includes an invalid ISO timestamp.");
+  }
+  return Math.max(0, Math.floor((endMs - startMs) / 1000));
+}
+
+export function deriveStepTimingRangesFromCsv(
+  csv: string,
+  options: StepTimingImportOptions,
+): StepTimingRange[] {
+  const videoStartMs = Date.parse(options.videoStartIso);
+  if (!Number.isFinite(videoStartMs)) {
+    throw new Error("Video start time must be a valid ISO timestamp.");
+  }
+
+  const targetParticipantId = normalizeParticipantId(options.participantId);
+  const latestByStep = new Map<number, { stepName: string; timestampIso: string }>();
+
+  for (const row of parseCsvRows(csv)) {
+    const participantMatches =
+      normalizeParticipantId(row.participant_id ?? "") === targetParticipantId;
+    const planMatches = (row.plan_id ?? "").trim() === options.taskPlanId;
+    const actionMatches = (row.action ?? "").trim().toLowerCase() === "ai audio";
+    const stepNumber = Number(row.step);
+    const timestampIso = row.event_timestamp_iso ?? "";
+
+    if (
+      !participantMatches ||
+      !planMatches ||
+      !actionMatches ||
+      !Number.isInteger(stepNumber) ||
+      stepNumber < 1 ||
+      !timestampIso
+    ) {
+      continue;
+    }
+
+    const existing = latestByStep.get(stepNumber);
+    if (!existing || Date.parse(timestampIso) >= Date.parse(existing.timestampIso)) {
+      latestByStep.set(stepNumber, {
+        stepName: row.step_name ?? "",
+        timestampIso,
+      });
+    }
+  }
+
+  let previousEndIso = options.videoStartIso;
+  return Array.from(latestByStep.entries())
+    .sort(([left], [right]) => left - right)
+    .map(([stepNumber, timing]) => {
+      const adjustedEndSeconds =
+        secondsBetween(options.videoStartIso, timing.timestampIso) +
+        aiAudioInstructionDelaySeconds;
+      const range = {
+        stepNumber,
+        stepName: timing.stepName,
+        startSeconds: secondsBetween(options.videoStartIso, previousEndIso),
+        endSeconds: adjustedEndSeconds,
+        endTimestampIso: timing.timestampIso,
+      };
+      previousEndIso = new Date(
+        Date.parse(timing.timestampIso) + aiAudioInstructionDelaySeconds * 1000,
+      ).toISOString();
+      return range;
+    });
+}
+
+export function applyStepTimingRanges(
+  annotations: Record<number, StepAnnotation>,
+  ranges: StepTimingRange[],
+  updatedAt: string,
+): Record<number, StepAnnotation> {
+  return ranges.reduce(
+    (currentAnnotations, range) => {
+      const annotation = currentAnnotations[range.stepNumber];
+      if (!annotation) return currentAnnotations;
+      return {
+        ...currentAnnotations,
+        [range.stepNumber]: {
+          ...annotation,
+          startSeconds: range.startSeconds,
+          endSeconds: Math.max(range.startSeconds, range.endSeconds),
+          updatedAt,
+        },
+      };
+    },
+    { ...annotations },
+  );
+}
+
+export function extractQuickTimeStartIso(buffer: ArrayBuffer): string | null {
+  const bytes = new Uint8Array(buffer);
+  const view = new DataView(buffer);
+
+  for (let offset = 0; offset <= bytes.length - 16; offset += 1) {
+    const atomType = String.fromCharCode(
+      bytes[offset + 4],
+      bytes[offset + 5],
+      bytes[offset + 6],
+      bytes[offset + 7],
+    );
+    if (atomType !== "mvhd") continue;
+
+    const version = view.getUint8(offset + 8);
+    const creationSeconds =
+      version === 1
+        ? Number(view.getBigUint64(offset + 12))
+        : view.getUint32(offset + 12);
+    const unixSeconds = creationSeconds - quickTimeEpochOffsetSeconds;
+    if (!Number.isFinite(unixSeconds) || unixSeconds <= 0) return null;
+
+    return new Date(unixSeconds * 1000).toISOString();
+  }
+
+  return null;
 }
 
 export function isStepComplete(annotation: StepAnnotation): boolean {

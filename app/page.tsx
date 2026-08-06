@@ -13,10 +13,12 @@ import {
   createDraftSession,
   createEmptyAnnotations,
   createUploadSession,
+  applyStepTimingRanges,
+  deriveStepTimingRangesFromCsv,
+  extractQuickTimeStartIso,
   formatTimecode,
   isStepComplete,
   setStepEnd,
-  setStepStart,
   type CognitiveState,
   type RecordingSession,
   type StepAnnotation,
@@ -140,8 +142,11 @@ export default function Home() {
   const [sheetSyncStatus, setSheetSyncStatus] = useState<
     "off" | "ready" | "syncing" | "sent" | "failed"
   >(DEFAULT_ANNOTATION_SHEET_SYNC_URL ? "ready" : "off");
+  const [videoStartIso, setVideoStartIso] = useState("");
+  const [importedTimingFileName, setImportedTimingFileName] = useState("");
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const boundedPlaybackEndSecondsRef = useRef<number | null>(null);
 
   const activePlan = planForParticipant(activePlanId, participantId);
   const annotations = useMemo(
@@ -261,6 +266,7 @@ export default function Home() {
     }));
     setCurrentSeconds(0);
     setDurationSeconds(0);
+    boundedPlaybackEndSecondsRef.current = null;
   };
 
   const selectParticipant = (nextParticipantId: string) => {
@@ -274,6 +280,7 @@ export default function Home() {
     setSelectedSession(draft);
     setCurrentSeconds(0);
     setDurationSeconds(0);
+    boundedPlaybackEndSecondsRef.current = null;
     setQueryStatus("idle");
     setStatusMessage("Participant changed. A matching annotation draft is ready.");
     setAnnotationsBySession((current) => ({
@@ -286,6 +293,7 @@ export default function Home() {
     setSelectedSession(session);
     setCurrentSeconds(0);
     setDurationSeconds(session?.durationSeconds ?? 0);
+    boundedPlaybackEndSecondsRef.current = null;
     if (!session) return;
     setAnnotationsBySession((current) => ({
       ...current,
@@ -315,13 +323,13 @@ export default function Home() {
     });
   };
 
-  const handleUpload = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file) return;
     if (!file.type.startsWith("video/")) {
       setQueryStatus("error");
       setStatusMessage("Choose a browser-playable RGB video file.");
-      event.target.value = "";
       return;
     }
 
@@ -339,21 +347,77 @@ export default function Home() {
     setSessions((current) => [uploadSession, ...current]);
     selectSession(uploadSession);
     setQueryStatus("ready");
-    setStatusMessage("Manual RGB upload loaded for annotation.");
+    try {
+      const detectedStartIso = extractQuickTimeStartIso(await file.arrayBuffer());
+      if (detectedStartIso) {
+        setVideoStartIso(detectedStartIso);
+        setStatusMessage(`RGB upload loaded. Detected video start ISO ${detectedStartIso}.`);
+      } else {
+        setVideoStartIso("");
+        setStatusMessage("RGB upload loaded, but no QuickTime start timestamp was found.");
+      }
+    } catch {
+      setVideoStartIso("");
+      setStatusMessage("RGB upload loaded, but video metadata could not be read.");
+    }
+  };
+
+  const handleTimingCsvUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     event.target.value = "";
+    if (!file || !selectedSession) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const csv = String(reader.result ?? "");
+        const ranges = deriveStepTimingRangesFromCsv(csv, {
+          participantId,
+          taskPlanId: activePlan.id,
+          videoStartIso,
+        });
+        if (ranges.length === 0) {
+          setQueryStatus("error");
+          setStatusMessage("No matching AI audio rows found for this participant and plan.");
+          return;
+        }
+
+        setAnnotationsBySession((allSessions) => {
+          const current =
+            allSessions[selectedSession.id] ??
+            createEmptyAnnotations(selectedSession, activePlan);
+          return {
+            ...allSessions,
+            [selectedSession.id]: applyStepTimingRanges(
+              current,
+              ranges,
+              nowIso(),
+            ),
+          };
+        });
+        setImportedTimingFileName(file.name);
+        setQueryStatus("ready");
+        setStatusMessage(`Imported AI audio timing for ${ranges.length} steps.`);
+      } catch (error) {
+        setQueryStatus("error");
+        setStatusMessage(
+          error instanceof Error
+            ? error.message
+            : "Could not import AI audio timing CSV.",
+        );
+      }
+    };
+    reader.onerror = () => {
+      setQueryStatus("error");
+      setStatusMessage("Could not read the selected timing CSV file.");
+    };
+    reader.readAsText(file);
   };
 
   const readVideoSeconds = () => {
     const seconds = videoRef.current?.currentTime ?? currentSeconds;
     setCurrentSeconds(seconds);
     return seconds;
-  };
-
-  const markStart = (stepNumber: number) => {
-    const seconds = readVideoSeconds();
-    updateAnnotation(stepNumber, (current) =>
-      setStepStart(current, seconds, nowIso()),
-    );
   };
 
   const markEnd = (stepNumber: number) => {
@@ -371,10 +435,22 @@ export default function Home() {
     });
   };
 
-  const playVideo = () => {
+  const playVideo = (annotation?: StepAnnotation) => {
     if (!videoRef.current) {
       setStatusMessage("Upload an RGB recording before playing video.");
       return;
+    }
+    if (
+      annotation &&
+      typeof annotation.startSeconds === "number" &&
+      typeof annotation.endSeconds === "number" &&
+      annotation.endSeconds > annotation.startSeconds
+    ) {
+      videoRef.current.currentTime = annotation.startSeconds;
+      setCurrentSeconds(annotation.startSeconds);
+      boundedPlaybackEndSecondsRef.current = annotation.endSeconds;
+    } else {
+      boundedPlaybackEndSecondsRef.current = null;
     }
     videoRef.current.play().catch(() => {
       setStatusMessage("Video playback could not start. Use the video controls or upload a browser-playable file.");
@@ -601,11 +677,25 @@ export default function Home() {
             Upload RGB
             <input accept="video/*" type="file" onChange={handleUpload} />
           </label>
+          <label className="upload-button">
+            <span aria-hidden="true">↧</span>
+            Import AI audio timings
+            <input accept=".csv,text/csv" type="file" onChange={handleTimingCsvUpload} />
+          </label>
+          <div className="detected-video-start">
+            <span>Detected video start ISO</span>
+            <strong>{videoStartIso || "pending"}</strong>
+          </div>
         </div>
         <div className={`status-line status-${queryStatus}`}>
           <span aria-hidden="true" />
           {statusMessage}
         </div>
+        {importedTimingFileName && (
+          <p className="timing-import-note">
+            Timing source: {importedTimingFileName}
+          </p>
+        )}
         <div className="sheet-sync-panel">
           <span className={`sheet-sync-badge is-${sheetSyncStatus}`}>
             Google Sheets sync · {sheetSyncStatus}
@@ -664,7 +754,15 @@ export default function Home() {
                 ref={videoRef}
                 src={selectedSession?.rgbVideoUrl}
                 onTimeUpdate={(event) =>
-                  setCurrentSeconds(event.currentTarget.currentTime)
+                  {
+                    const seconds = event.currentTarget.currentTime;
+                    setCurrentSeconds(seconds);
+                    const endSeconds = boundedPlaybackEndSecondsRef.current;
+                    if (endSeconds !== null && seconds >= endSeconds) {
+                      event.currentTarget.pause();
+                      boundedPlaybackEndSecondsRef.current = null;
+                    }
+                  }
                 }
                 onLoadedMetadata={(event) => {
                   const duration = event.currentTarget.duration;
@@ -738,17 +836,10 @@ export default function Home() {
                     <button
                       type="button"
                       className="play-video-button"
-                      onClick={playVideo}
+                      onClick={() => playVideo(annotation)}
                     >
-                      Play video
+                      Play step
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => markStart(annotation.stepNumber)}
-                    >
-                      Mark start
-                    </button>
-                    <span>{formatTimecode(annotation.startSeconds ?? 0)}</span>
                     <button
                       type="button"
                       onClick={() => markEnd(annotation.stepNumber)}
