@@ -4,15 +4,74 @@ import test from "node:test";
 const model = await import("../app/annotation-model.ts");
 const taskPlans = await import("../app/task-plans.ts");
 
+const distractorWindows = [
+  { label: "A", allowed: new Set([1, 2, 3]) },
+  { label: "B", allowed: new Set([3, 4, 5]) },
+  { label: "C", allowed: new Set([5, 6, 7]) },
+];
+
+function distractorPositions(tasks) {
+  let correctSeen = 0;
+  let distractorSeen = 0;
+  return tasks.flatMap((task, index) => {
+    if (task.mainKind === "correct") {
+      correctSeen += 1;
+      return [];
+    }
+    const window = distractorWindows[distractorSeen++];
+    return [{ ...window, correctSeen, index }];
+  });
+}
+
+function assertDistractorWindows(tasks) {
+  const positions = distractorPositions(tasks);
+  assert.equal(positions.length, 3);
+  for (const position of positions) {
+    assert.ok(
+      position.allowed.has(position.correctSeen),
+      `${position.label} inserted after correct ${position.correctSeen}`,
+    );
+  }
+  assert.ok(positions[0].index < positions[1].index, "A should appear before B");
+  assert.ok(positions[1].index < positions[2].index, "B should appear before C");
+}
+
+test("includes a 5-step training plan before the four 7-correct-step study plans", () => {
+  assert.deepEqual(
+    taskPlans.plans.map((plan) => plan.id),
+    ["training", "sandwich", "shelf", "boba", "table"],
+  );
+  assert.equal(taskPlans.plans[0].tasks.length, 5);
+  for (const plan of taskPlans.plans.slice(1)) {
+    assert.equal(plan.tasks.length, 7);
+    assert.equal(plan.tasks.filter((task) => task.mainKind === "correct").length, 7);
+  }
+});
+
+test("uses the same participant-stable Sandwich sequence as CogARReliance", () => {
+  const p1 = taskPlans.planForParticipant("sandwich", "P01");
+  const p1Again = taskPlans.planForParticipant("sandwich", "1");
+  const p2 = taskPlans.planForParticipant("sandwich", "P02");
+
+  assert.equal(p1.tasks.length, 10);
+  assert.deepEqual(p1.tasks, p1Again.tasks);
+  assert.notDeepEqual(p1.tasks, p2.tasks);
+  assert.equal(p1.tasks.filter((task) => task.mainKind === "correct").length, 7);
+  assert.equal(p1.tasks.filter((task) => task.mainKind === "incorrect").length, 3);
+  assertDistractorWindows(p1.tasks);
+});
+
 test("uses the same participant-stable Shelf sequence as CogARReliance", () => {
   const p1 = taskPlans.planForParticipant("shelf", "P01");
   const p1Again = taskPlans.planForParticipant("shelf", "1");
   const p2 = taskPlans.planForParticipant("shelf", "P02");
 
-  assert.equal(p1.tasks.length, 20);
+  assert.equal(p1.tasks.length, 10);
   assert.deepEqual(p1.tasks, p1Again.tasks);
   assert.notDeepEqual(p1.tasks, p2.tasks);
-  assert.equal(p1.tasks.filter((task) => task.mainKind === "incorrect").length, 5);
+  assert.equal(p1.tasks.filter((task) => task.mainKind === "correct").length, 7);
+  assert.equal(p1.tasks.filter((task) => task.mainKind === "incorrect").length, 3);
+  assertDistractorWindows(p1.tasks);
 });
 
 test("uses the same participant-stable Boba sequence as CogARReliance", () => {
@@ -20,19 +79,12 @@ test("uses the same participant-stable Boba sequence as CogARReliance", () => {
   const p1Again = taskPlans.planForParticipant("boba", "1");
   const p2 = taskPlans.planForParticipant("boba", "P02");
 
-  assert.equal(p1.tasks.length, 20);
+  assert.equal(p1.tasks.length, 10);
   assert.deepEqual(p1.tasks, p1Again.tasks);
   assert.notDeepEqual(p1.tasks, p2.tasks);
-  assert.equal(p1.tasks.filter((task) => task.mainKind === "incorrect").length, 5);
-  assert.deepEqual(
-    p1.tasks.slice(0, 4).map((task) => task.name),
-    [
-      "Take a cup",
-      "Add white sugar to the cup",
-      "Add strawberry sugar syrup into the cup",
-      "Add boba into the cup",
-    ],
-  );
+  assert.equal(p1.tasks.filter((task) => task.mainKind === "correct").length, 7);
+  assert.equal(p1.tasks.filter((task) => task.mainKind === "incorrect").length, 3);
+  assertDistractorWindows(p1.tasks);
 });
 
 test("uses the same participant-stable Table sequence as CogARReliance", () => {
@@ -40,19 +92,12 @@ test("uses the same participant-stable Table sequence as CogARReliance", () => {
   const p1Again = taskPlans.planForParticipant("table", "1");
   const p2 = taskPlans.planForParticipant("table", "P02");
 
-  assert.equal(p1.tasks.length, 20);
+  assert.equal(p1.tasks.length, 10);
   assert.deepEqual(p1.tasks, p1Again.tasks);
   assert.notDeepEqual(p1.tasks, p2.tasks);
-  assert.equal(p1.tasks.filter((task) => task.mainKind === "incorrect").length, 5);
-  assert.deepEqual(
-    p1.tasks.slice(0, 4).map((task) => task.name),
-    [
-      "Insert a number four piece at slot one of a number three piece",
-      "Connect the other side of the number four piece with a new number three piece",
-      "Take another number four piece",
-      "Insert a number seven piece at slot two of a number three piece",
-    ],
-  );
+  assert.equal(p1.tasks.filter((task) => task.mainKind === "correct").length, 7);
+  assert.equal(p1.tasks.filter((task) => task.mainKind === "incorrect").length, 3);
+  assertDistractorWindows(p1.tasks);
 });
 
 test("formats video seconds as compact timecodes", () => {

@@ -1,4 +1,4 @@
-export type PlanId = "sandwich" | "shelf" | "boba" | "table";
+export type PlanId = "training" | "sandwich" | "shelf" | "boba" | "table";
 
 export type CueKind = "correct" | "incorrect";
 
@@ -25,72 +25,91 @@ export type Plan = {
   tasks: Task[];
 };
 
+const DISTRACTOR_INSERT_WINDOWS = [
+  { label: "A", allowedAfterCorrectSteps: [1, 2, 3] },
+  { label: "B", allowedAfterCorrectSteps: [3, 4, 5] },
+  { label: "C", allowedAfterCorrectSteps: [5, 6, 7] },
+];
+
+const trainingCorrectSteps = [
+  "Put a long piece on the ground",
+  "Put a square piece at slot 1",
+  "Put a square piece at slot 2",
+  "Put a square piece at slot 3",
+  "Put a long piece on the top",
+];
+const sandwichCorrectSteps = [
+  "Take a plate",
+  "Put a bread into the plate",
+  "Add a piece of cheese",
+  "Add a piece of ham",
+  "Add ketchup",
+  "Add a bread on top",
+  "Put into microwave",
+];
 const shelfCorrectSteps = [
-  "Classify the pieces based on color", "Take a yellow piece", "Take a green piece",
-  "Insert a green piece at slot 1 of the yellow piece", "Take a pink piece",
-  "Insert a pink piece at slot 2 of the yellow piece", "Insert another pink piece at slot 3 of the yellow piece",
-  "Insert another pink piece at slot 4 of the yellow piece", "Take a green piece",
-  "Align the orientations of the 2 green pieces", "Insert a green piece at slot 5 of the yellow piece",
-  "Take a yellow piece", "Insert another yellow piece on the right of green and pink pieces mirroring the 1st yellow panel.",
-  "Take a blue piece", "Insert a blue piece with green and pink pieces",
+  "Classify the pieces based on color",
+  "Insert a green at slot 1 of the yellow",
+  "Insert a pink piece at slot 2 of the yellow",
+  "Insert another 2 pink at slot 3 and 4",
+  "Insert a green piece at slot 5",
+  "Connect another yellow with the green and pink",
+  "Connect a blue piece with the 2 green",
 ];
 const bobaCorrectSteps = [
-  "Take a cup", "Add strawberry sugar syrup into the cup", "Add boba into the cup", "Mix boba with the syrup",
-  "Add the yogurt into the cup as a bottom layer", "Take a new cup", "Pour the matcha latte into the new cup",
-  "Pour coconut milk into the matcha latte", "Mix up the matcha and the coconut milk", "Pour mixed matcha milk into the 1st cup",
-  "Throw away the 2nd cup", "Grab the milk cream", "Add cream on top of the 1st cup", "Add matcha powder", "Add a straw",
+  "Add strawberry sugar syrup into a cup",
+  "Add boba",
+  "Add the yogurt as bottom layer",
+  "Pour matcha latte",
+  "Pour coconut milk",
+  "Add milk cream on the top",
+  "Add matcha powder",
 ];
 const tableCorrectSteps = [
-  "Insert a number four piece at slot one of a number three piece",
-  "Connect the other side of the number four piece with a new number three piece",
-  "Take another number four piece",
-  "Insert the number four piece at slot two between the two number three pieces",
-  "Connect the number one piece on top of the two number three pieces",
-  "Connect a number two piece at the remaining slot of the number one piece",
-  "Connect a number five piece with a number six piece",
-  "Connect another number five piece with the number six piece",
-  "Connect a second number six piece on the other end of the number five pieces",
-  "Connect a number eight piece with a number nine piece",
-  "Connect another number eight piece with the number nine piece",
-  "Connect a second number nine piece on the other end of the number eight pieces",
-  "Connect a number five piece with a number six piece",
-  "Connect another number five piece with the number six piece",
-  "Connect a second number six piece on the other end of the number five pieces",
+  "Insert a No.4 at slot 1 of a No.3",
+  "Connect another No.3 with the No.4",
+  "Insert a No.4 at slot 2 of the No.3",
+  "Connect a No.1 on top of the 2 No.3",
+  "Connect a No.2 with the No.1",
+  "Connect 2 No.5 with a No.6",
+  "Connect another No.6 with the No.5",
 ];
 
 const randomizedTaskConfigs = {
+  sandwich: {
+    correctSteps: sandwichCorrectSteps,
+    distractorSteps: [
+      "Add peppers",
+      "Add the green celery",
+      "Add water into a cup",
+    ],
+  },
   shelf: {
     correctSteps: shelfCorrectSteps,
     distractorSteps: [
-      "Take a scissors",
-      "Insert a purple piece at slot 3",
+      "Insert a purple at slot 3 of the yellow",
       "Insert a pink piece at slot 5",
       "Take a black piece",
-      "Take a marker pen",
     ],
   },
   boba: {
     correctSteps: bobaCorrectSteps,
     distractorSteps: [
       "Add white sugar to the cup",
-      "Take one more plate",
-      "Put a piece of lemon on the edge of the cup",
-      "Pour out 25% portion of the first cup into the trash can",
-      "Stir the cup",
+      "Mix up the current cup",
+      "Add a piece of lemon on the edge",
     ],
   },
   table: {
     correctSteps: tableCorrectSteps,
     distractorSteps: [
-      "Insert a number seven piece at slot two of a number three piece",
-      "Take a number seven piece",
-      "Connect a number five piece with a number nine piece",
-      "Connect a number six piece with a number eight piece",
       "Take a cutting knife",
+      "Connect a No.5 with a No.9",
+      "Connect a No.6 with a No.8",
     ],
   },
 } satisfies Record<
-  "shelf" | "boba" | "table",
+  "sandwich" | "shelf" | "boba" | "table",
   { correctSteps: string[]; distractorSteps: string[] }
 >;
 
@@ -107,6 +126,20 @@ function participantNumber(participantId: string) {
 
 export const plans: Plan[] = [
   {
+    id: "training",
+    code: "T",
+    eyebrow: "POST-TASK ANNOTATION · TRAINING",
+    title: "Training plan",
+    annotationTitle: "Training annotation",
+    description:
+      "Annotate the participant's five-step training task before the study tasks.",
+    tasks: trainingCorrectSteps.map((text) => ({
+      name: text,
+      correctOptions: [{ text }],
+      mainKind: "correct",
+    })),
+  },
+  {
     id: "sandwich",
     code: "A",
     eyebrow: "POST-TASK ANNOTATION · TASK A",
@@ -114,40 +147,11 @@ export const plans: Plan[] = [
     annotationTitle: "Sandwich annotation",
     description:
       "Annotate the participant's step boundaries, reliance, confidence, and cognitive state while reviewing the RGB recording.",
-    tasks: [
-      {
-        name: "Bread",
-        correctOptions: [{ text: "Take a piece of bread and put in a plate." }],
-        mainKind: "correct",
-      },
-      {
-        name: "Ketchup",
-        correctOptions: [{ text: "Add ketchup" }],
-        incorrectOptions: [{ text: "Add ketchup and lemon pieces" }],
-        mainKind: "incorrect",
-      },
-      {
-        name: "Cheese",
-        correctOptions: [{ text: "Add a piece of cheese." }],
-        mainKind: "correct",
-      },
-      {
-        name: "Ham",
-        correctOptions: [{ text: "Add a piece of ham." }],
-        mainKind: "correct",
-      },
-      {
-        name: "Bread",
-        correctOptions: [{ text: "Add bread" }],
-        incorrectOptions: [{ text: "Put celery into this and add bread" }],
-        mainKind: "incorrect",
-      },
-      {
-        name: "Microwave",
-        correctOptions: [{ text: "Put into microwave." }],
-        mainKind: "correct",
-      },
-    ],
+    tasks: sandwichCorrectSteps.map((text) => ({
+      name: text,
+      correctOptions: [{ text }],
+      mainKind: "correct",
+    })),
   },
   {
     id: "shelf",
@@ -157,55 +161,11 @@ export const plans: Plan[] = [
     annotationTitle: "Shelf assembly annotation",
     description:
       "Review the shelf assembly recording and label each step with one reliance and cognitive-state judgment.",
-    tasks: [
-      {
-        name: "Take the yellow labeled piece",
-        correctOptions: [{ text: "Take a yellow piece" }],
-        mainKind: "correct",
-      },
-      {
-        name: "Insert the bottom at slot 1",
-        correctOptions: [
-          { text: "Take a green piece and insert to slot 1 of the yellow piece" },
-        ],
-        mainKind: "correct",
-      },
-      {
-        name: "Insert a mid-layer at slot 2",
-        correctOptions: [],
-        incorrectOptions: [{ text: "Insert a green piece into slot 2" }],
-        mainKind: "incorrect",
-      },
-      {
-        name: "Insert a mid-layer at slot 3",
-        correctOptions: [{ text: "Insert a pink piece to slot 3" }],
-        mainKind: "correct",
-      },
-      {
-        name: "Insert a mid-layer at slot 4",
-        correctOptions: [{ text: "Insert a pink piece to slot 4" }],
-        mainKind: "correct",
-      },
-      {
-        name: "Insert a top-layer at slot 5",
-        correctOptions: [{ text: "Insert a pink piece to slot 5" }],
-        mainKind: "correct",
-      },
-      {
-        name: "Insert right-layer at the right side",
-        correctOptions: [
-          { text: "Insert a yellow piece on the right side" },
-          { text: "Replace the green piece slot 2 with the pink piece", tone: "green" },
-        ],
-        incorrectOptions: [{ text: "Insert a blue piece on the right side" }],
-        mainKind: "incorrect",
-      },
-      {
-        name: "Insert the back",
-        correctOptions: [{ text: "Insert a blue piece on the back side" }],
-        mainKind: "correct",
-      },
-    ],
+    tasks: shelfCorrectSteps.map((text) => ({
+      name: text,
+      correctOptions: [{ text }],
+      mainKind: "correct",
+    })),
   },
   {
     id: "boba",
@@ -215,62 +175,11 @@ export const plans: Plan[] = [
     annotationTitle: "Boba tea annotation",
     description:
       "Annotate the strawberry matcha drink recording with task-step timing and step-level cognitive labels.",
-    tasks: [
-      {
-        name: "Take a cup",
-        correctOptions: [{ text: "Take an empty cup and put in front of you" }],
-        mainKind: "correct",
-      },
-      {
-        name: "Add strawberry sugar syrup",
-        correctOptions: [{ text: "Add strawberry sugar syrup into the cup" }],
-        mainKind: "correct",
-      },
-      {
-        name: "Add boba and coat every pearl",
-        correctOptions: [{ text: "Add boba" }],
-        incorrectOptions: [{ text: "Add boba and a few peppers" }],
-        mainKind: "incorrect",
-      },
-      {
-        name: "Add strawberry yogurt as a bottom layer",
-        correctOptions: [{ text: "Add strawberry yogurt as the bottom layer" }],
-        mainKind: "correct",
-      },
-      {
-        name: "Take a second cup",
-        correctOptions: [{ text: "Take a second empty cup" }],
-        mainKind: "correct",
-      },
-      {
-        name: "Mix matcha latte and coconut milk",
-        correctOptions: [{ text: "Mix matcha latte and coconut milk" }],
-        mainKind: "correct",
-      },
-      {
-        name: "Pour into the first cup as the 2nd layer",
-        correctOptions: [{ text: "Pour into the first cup as the 2nd layer" }],
-        mainKind: "correct",
-      },
-      {
-        name: "Pour cream on top",
-        correctOptions: [{ text: "Pour in the cream on top as 3rd layer" }],
-        incorrectOptions: [
-          { text: "Pour in the matcha cream and stir until evenly mixed." },
-        ],
-        mainKind: "incorrect",
-      },
-      {
-        name: "Add matcha powder on top",
-        correctOptions: [{ text: "Add matcha powder on the top" }],
-        mainKind: "correct",
-      },
-      {
-        name: "Add a straw and taste",
-        correctOptions: [{ text: "Add a straw and have a taste" }],
-        mainKind: "correct",
-      },
-    ],
+    tasks: bobaCorrectSteps.map((text) => ({
+      name: text,
+      correctOptions: [{ text }],
+      mainKind: "correct",
+    })),
   },
   {
     id: "table",
@@ -290,17 +199,27 @@ export const plans: Plan[] = [
 
 export function planForParticipant(planId: PlanId, participantId: string): Plan {
   const base = plans.find((plan) => plan.id === planId) ?? plans[0];
-  if (planId !== "shelf" && planId !== "boba" && planId !== "table") return base;
+  if (planId === "training") return base;
   const config = randomizedTaskConfigs[planId];
   const random = seededRandom(`${planId}-${participantNumber(participantId)}`);
-  const tasks = Array.from({ length: 5 }, (_, blockIndex) => {
-    const block = config.correctSteps.slice(blockIndex * 3, blockIndex * 3 + 3).map((text) => ({
-      name: text, correctOptions: [{ text }], mainKind: "correct" as const,
-    }));
-    const position = blockIndex === 0 ? 1 + Math.floor(random() * 3) : Math.floor(random() * 4);
-    const text = config.distractorSteps[blockIndex];
-    const distractor = { name: text, correctOptions: [], incorrectOptions: [{ text }], mainKind: "incorrect" as const };
-    return [...block.slice(0, position), distractor, ...block.slice(position)];
-  }).flat();
+  const buckets = new Map<number, Task[]>();
+  for (const [index, text] of config.distractorSteps.entries()) {
+    const allowedAfterCorrectSteps =
+      DISTRACTOR_INSERT_WINDOWS[index].allowedAfterCorrectSteps;
+    const insertAfterCorrectStep =
+      allowedAfterCorrectSteps[Math.floor(random() * allowedAfterCorrectSteps.length)];
+    const bucket = buckets.get(insertAfterCorrectStep) ?? [];
+    bucket.push({
+      name: text,
+      correctOptions: [],
+      incorrectOptions: [{ text }],
+      mainKind: "incorrect",
+    });
+    buckets.set(insertAfterCorrectStep, bucket);
+  }
+  const tasks = config.correctSteps.flatMap((text, index) => [
+    { name: text, correctOptions: [{ text }], mainKind: "correct" as const },
+    ...(buckets.get(index + 1) ?? []),
+  ]);
   return { ...base, tasks };
 }
