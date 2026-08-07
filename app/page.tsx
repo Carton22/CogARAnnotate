@@ -18,7 +18,6 @@ import {
   extractQuickTimeStartIso,
   formatTimecode,
   isStepComplete,
-  setStepEnd,
   type CognitiveState,
   type RecordingSession,
   type StepAnnotation,
@@ -378,7 +377,7 @@ export default function Home() {
         });
         if (ranges.length === 0) {
           setQueryStatus("error");
-          setStatusMessage("No matching AI audio rows found for this participant and plan.");
+          setStatusMessage("No matching AI accepted or rejected rows found for this participant and plan.");
           return;
         }
 
@@ -397,13 +396,13 @@ export default function Home() {
         });
         setImportedTimingFileName(file.name);
         setQueryStatus("ready");
-        setStatusMessage(`Imported AI audio timing for ${ranges.length} steps.`);
+        setStatusMessage(`Imported AI decision timing for ${ranges.length} steps.`);
       } catch (error) {
         setQueryStatus("error");
         setStatusMessage(
           error instanceof Error
             ? error.message
-            : "Could not import AI audio timing CSV.",
+            : "Could not import AI decision timing CSV.",
         );
       }
     };
@@ -412,27 +411,6 @@ export default function Home() {
       setStatusMessage("Could not read the selected timing CSV file.");
     };
     reader.readAsText(file);
-  };
-
-  const readVideoSeconds = () => {
-    const seconds = videoRef.current?.currentTime ?? currentSeconds;
-    setCurrentSeconds(seconds);
-    return seconds;
-  };
-
-  const markEnd = (stepNumber: number) => {
-    const seconds = readVideoSeconds();
-    videoRef.current?.pause();
-    updateAnnotation(stepNumber, (current) => {
-      try {
-        return setStepEnd(current, seconds, nowIso());
-      } catch (error) {
-        setStatusMessage(
-          error instanceof Error ? error.message : "Invalid step end time.",
-        );
-        return current;
-      }
-    });
   };
 
   const playVideo = (annotation?: StepAnnotation) => {
@@ -679,7 +657,7 @@ export default function Home() {
           </label>
           <label className="upload-button">
             <span aria-hidden="true">↧</span>
-            Import AI audio timings
+            Import AI decision timings
             <input accept=".csv,text/csv" type="file" onChange={handleTimingCsvUpload} />
           </label>
           <div className="detected-video-start">
@@ -839,12 +817,6 @@ export default function Home() {
                       onClick={() => playVideo(annotation)}
                     >
                       Play step
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => markEnd(annotation.stepNumber)}
-                    >
-                      Mark end
                     </button>
                     <span>{formatTimecode(annotation.endSeconds ?? 0)}</span>
                   </div>

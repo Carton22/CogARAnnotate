@@ -119,8 +119,9 @@ const exportFields: (keyof AnnotationExportRow)[] = [
   "updated_at",
 ];
 
-const aiAudioInstructionDelaySeconds = 2;
 const quickTimeEpochOffsetSeconds = 2082844800;
+const aiDecisionActions = new Set(["ai accepted", "ai rejected"]);
+const aiDecisionEndOffsetSeconds = 5;
 
 export function formatTimecode(totalSeconds: number): string {
   const safeSeconds = Math.max(0, Math.floor(totalSeconds));
@@ -296,7 +297,9 @@ export function deriveStepTimingRangesFromCsv(
     const participantMatches =
       normalizeParticipantId(row.participant_id ?? "") === targetParticipantId;
     const planMatches = (row.plan_id ?? "").trim() === options.taskPlanId;
-    const actionMatches = (row.action ?? "").trim().toLowerCase() === "ai audio";
+    const actionMatches = aiDecisionActions.has(
+      (row.action ?? "").trim().toLowerCase(),
+    );
     const stepNumber = Number(row.step);
     const timestampIso = row.event_timestamp_iso ?? "";
 
@@ -324,19 +327,17 @@ export function deriveStepTimingRangesFromCsv(
   return Array.from(latestByStep.entries())
     .sort(([left], [right]) => left - right)
     .map(([stepNumber, timing]) => {
-      const adjustedEndSeconds =
-        secondsBetween(options.videoStartIso, timing.timestampIso) +
-        aiAudioInstructionDelaySeconds;
+      const adjustedEndIso = new Date(
+        Date.parse(timing.timestampIso) + aiDecisionEndOffsetSeconds * 1000,
+      ).toISOString();
       const range = {
         stepNumber,
         stepName: timing.stepName,
         startSeconds: secondsBetween(options.videoStartIso, previousEndIso),
-        endSeconds: adjustedEndSeconds,
+        endSeconds: secondsBetween(options.videoStartIso, adjustedEndIso),
         endTimestampIso: timing.timestampIso,
       };
-      previousEndIso = new Date(
-        Date.parse(timing.timestampIso) + aiAudioInstructionDelaySeconds * 1000,
-      ).toISOString();
+      previousEndIso = adjustedEndIso;
       return range;
     });
 }
