@@ -47,15 +47,18 @@ test("filterHeartRateRows returns rows inside inclusive ISO range", () => {
   );
 });
 
-test("deriveAnalysisStepRangesFromCsv uses the latest AI accepted or rejected timestamp per matching step", () => {
+test("deriveAnalysisStepRangesFromCsv uses the complete action timestamp per matching step", () => {
   const csv = [
     "participant_id,plan_id,plan,step,step_name,action,detail,event_timestamp_iso",
     "3,boba,Boba tea plan,1,Add strawberry syrup,AI audio,Add strawberry syrup,2026-08-06T21:18:45.610Z",
     "3,boba,Boba tea plan,1,Add strawberry syrup,AI accepted,AI instruction,2026-08-06T21:18:56.360Z",
+    "3,boba,Boba tea plan,1,Add strawberry syrup,complete,Step complete,2026-08-06T21:18:58.000Z",
     "3,boba,Boba tea plan,2,Add boba,AI accepted,AI instruction,2026-08-06T21:19:28.446Z",
     "3,boba,Boba tea plan,2,Add boba,AI rejected,AI instruction,2026-08-06T21:19:30.000Z",
+    "3,boba,Boba tea plan,2,Add boba,complete,Step complete,2026-08-06T21:19:32.000Z",
     "3,shelf,Shelf assembly plan,1,Classify,AI accepted,AI instruction,2026-08-06T21:45:06.526Z",
     "4,boba,Boba tea plan,1,Add strawberry syrup,AI accepted,AI instruction,2026-08-06T21:20:00.000Z",
+    "4,boba,Boba tea plan,1,Add strawberry syrup,complete,Step complete,2026-08-06T21:20:05.000Z",
   ].join("\n");
 
   assert.deepEqual(
@@ -67,14 +70,14 @@ test("deriveAnalysisStepRangesFromCsv uses the latest AI accepted or rejected ti
       {
         stepNumber: 1,
         startIso: "2026-08-06T21:18:45.610Z",
-        endIso: "2026-08-06T21:19:01.360Z",
-        decisionTimestampIso: "2026-08-06T21:18:56.360Z",
+        endIso: "2026-08-06T21:18:58.000Z",
+        decisionTimestampIso: "2026-08-06T21:18:58.000Z",
       },
       {
         stepNumber: 2,
-        startIso: "2026-08-06T21:19:01.360Z",
-        endIso: "2026-08-06T21:19:35.000Z",
-        decisionTimestampIso: "2026-08-06T21:19:30.000Z",
+        startIso: "2026-08-06T21:18:58.000Z",
+        endIso: "2026-08-06T21:19:32.000Z",
+        decisionTimestampIso: "2026-08-06T21:19:32.000Z",
       },
     ],
   );

@@ -135,8 +135,7 @@ const exportFields: (keyof AnnotationExportRow)[] = [
 ];
 
 const quickTimeEpochOffsetSeconds = 2082844800;
-const aiDecisionActions = new Set(["ai accepted", "ai rejected"]);
-const aiDecisionEndOffsetSeconds = 5;
+const stepCompletionActions = new Set(["complete"]);
 
 function hashString(value: string): number {
   let hash = 2166136261;
@@ -357,7 +356,7 @@ export function deriveStepTimingRangesFromCsv(
     const participantMatches =
       normalizeParticipantId(row.participant_id ?? "") === targetParticipantId;
     const planMatches = (row.plan_id ?? "").trim() === options.taskPlanId;
-    const actionMatches = aiDecisionActions.has(
+    const actionMatches = stepCompletionActions.has(
       (row.action ?? "").trim().toLowerCase(),
     );
     const stepNumber = Number(row.step);
@@ -387,17 +386,14 @@ export function deriveStepTimingRangesFromCsv(
   return Array.from(latestByStep.entries())
     .sort(([left], [right]) => left - right)
     .map(([stepNumber, timing]) => {
-      const adjustedEndIso = new Date(
-        Date.parse(timing.timestampIso) + aiDecisionEndOffsetSeconds * 1000,
-      ).toISOString();
       const range = {
         stepNumber,
         stepName: timing.stepName,
         startSeconds: secondsBetween(options.videoStartIso, previousEndIso),
-        endSeconds: secondsBetween(options.videoStartIso, adjustedEndIso),
+        endSeconds: secondsBetween(options.videoStartIso, timing.timestampIso),
         endTimestampIso: timing.timestampIso,
       };
-      previousEndIso = adjustedEndIso;
+      previousEndIso = timing.timestampIso;
       return range;
     });
 }

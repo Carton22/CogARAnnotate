@@ -19,8 +19,7 @@ const timestampColumns = [
   "created_at",
 ];
 const bpmColumns = ["heart_rate", "heartrate", "hr", "bpm", "pulse"];
-const aiDecisionActions = new Set(["ai accepted", "ai rejected"]);
-const aiDecisionEndOffsetSeconds = 5;
+const stepCompletionActions = new Set(["complete"]);
 
 function parseIso(value: string) {
   const timestamp = Date.parse(value.trim());
@@ -126,7 +125,7 @@ export function deriveAnalysisStepRangesFromCsv(
     const participantMatches =
       normalizeParticipantId(row.participant_id ?? "") === targetParticipantId;
     const planMatches = (row.plan_id ?? "").trim() === options.taskPlanId;
-    const actionMatches = aiDecisionActions.has(
+    const actionMatches = stepCompletionActions.has(
       (row.action ?? "").trim().toLowerCase(),
     );
     const stepNumber = Number(row.step);
@@ -160,9 +159,7 @@ export function deriveAnalysisStepRangesFromCsv(
   return Array.from(latestByStep.entries())
     .sort(([left], [right]) => left - right)
     .map(([stepNumber, decisionTimestampIso], index) => {
-      const endIso = new Date(
-        Date.parse(decisionTimestampIso) + aiDecisionEndOffsetSeconds * 1000,
-      ).toISOString();
+      const endIso = decisionTimestampIso;
       const startIso = index === 0 ? (firstEventIso || decisionTimestampIso) : previousEndIso;
       previousEndIso = endIso;
       return {

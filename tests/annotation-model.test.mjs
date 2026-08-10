@@ -267,16 +267,19 @@ test("builds export rows and CSV with stable field names", () => {
   assert.match(csv, /"participant checked the plate"/);
 });
 
-test("derives step ranges from the last AI accepted or rejected timestamp per step", () => {
+test("derives step ranges from the complete action timestamp per step", () => {
   const csv = [
     "participant_id,plan_id,plan,step,step_name,action,detail,event_timestamp_iso",
     "2,boba,Boba tea plan,1,Take a cup,AI audio,Take a cup,2026-08-05T21:51:11.000Z",
     "2,boba,Boba tea plan,1,Take a cup,AI accepted,AI instruction,2026-08-05T21:51:20.000Z",
     "2,boba,Boba tea plan,1,Take a cup,AI rejected,AI instruction,2026-08-05T21:51:24.500Z",
+    "2,boba,Boba tea plan,1,Take a cup,complete,Step complete,2026-08-05T21:51:26.000Z",
     "2,boba,Boba tea plan,2,Add syrup,AI audio,Add syrup,2026-08-05T21:51:32.250Z",
     "2,boba,Boba tea plan,2,Add syrup,AI rejected,AI instruction,2026-08-05T21:51:40.250Z",
+    "2,boba,Boba tea plan,2,Add syrup,complete,Step complete,2026-08-05T21:51:41.000Z",
     "2,shelf,Shelf assembly plan,1,Classify,AI audio,Classify,2026-08-05T21:52:00.000Z",
     "3,boba,Boba tea plan,1,Take a cup,AI audio,Take a cup,2026-08-05T21:53:00.000Z",
+    "3,boba,Boba tea plan,1,Take a cup,complete,Step complete,2026-08-05T21:53:05.000Z",
   ].join("\n");
 
   const ranges = model.deriveStepTimingRangesFromCsv(csv, {
@@ -290,15 +293,15 @@ test("derives step ranges from the last AI accepted or rejected timestamp per st
       stepNumber: 1,
       stepName: "Take a cup",
       startSeconds: 0,
-      endSeconds: 29,
-      endTimestampIso: "2026-08-05T21:51:24.500Z",
+      endSeconds: 26,
+      endTimestampIso: "2026-08-05T21:51:26.000Z",
     },
     {
       stepNumber: 2,
       stepName: "Add syrup",
-      startSeconds: 29,
-      endSeconds: 45,
-      endTimestampIso: "2026-08-05T21:51:40.250Z",
+      startSeconds: 26,
+      endSeconds: 41,
+      endTimestampIso: "2026-08-05T21:51:41.000Z",
     },
   ]);
 });
