@@ -51,6 +51,8 @@ test("server-renders the CogAR annotation console shell", async () => {
   assert.match(html, /type="checkbox"/);
   assert.match(html, /What&#x27;s your thinking process at that step/);
   assert.match(html, /Start speech input/);
+  assert.match(html, /annotation-sync-footer/);
+  assert.match(html, /Sync all answers to Google Sheets/);
   assert.doesNotMatch(html, /App Rely/);
   assert.doesNotMatch(html, /App Reject/);
   assert.doesNotMatch(html, /Overreliance/);

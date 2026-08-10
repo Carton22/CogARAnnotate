@@ -107,15 +107,21 @@ test("appends annotation rows to participant sheets", async () => {
     "task_planning_engagement",
     "cognitive_state",
     "notes",
+    "source_vrs_name",
+    "rgb_video_url",
+    "updated_at",
   ]);
   assert.equal(appendedRows.length, 1);
   assert.equal(appendedRows[0].sheet, "P01");
-  assert.equal(appendedRows[0].row.length, 16);
+  assert.equal(appendedRows[0].row.length, 19);
   assert.equal(appendedRows[0].row[0], "draft-P01-sandwich");
   assert.equal(appendedRows[0].row[1], "P01");
   assert.equal(appendedRows[0].row[13], 5);
   assert.equal(appendedRows[0].row[14], "taking-actions");
   assert.equal(appendedRows[0].row[15], "checked the recommendation");
+  assert.equal(appendedRows[0].row[16], "No RGB recording loaded");
+  assert.equal(appendedRows[0].row[17], "");
+  assert.equal(appendedRows[0].row[18], "2026-08-05T14:05:00.000Z");
   assert.equal(appendedRows[0].row[10], 5);
 });
 

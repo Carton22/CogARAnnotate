@@ -15,6 +15,9 @@ const HEADERS = [
   "task_planning_engagement",
   "cognitive_state",
   "notes",
+  "source_vrs_name",
+  "rgb_video_url",
+  "updated_at",
 ];
 
 function participantSheetName(participantId) {

@@ -750,6 +750,50 @@ h3 {
   display: grid;
 }
 
+.annotation-sync-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 260px);
+  align-items: center;
+  gap: 16px;
+  padding: 22px 24px 24px;
+  border-top: 1px solid var(--line);
+  background: #fbf6ef;
+}
+
+.annotation-sync-footer > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  min-width: 0;
+}
+
+.annotation-sync-footer p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sheet-sync-button {
+  width: 100%;
+  min-height: 54px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--blue);
+  box-shadow: 0 14px 28px rgba(59, 130, 246, 0.24);
+  color: white;
+  font-size: 15px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.sheet-sync-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .annotation-row {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(260px, 1fr);
@@ -1406,6 +1450,7 @@ footer p {
   }
 
   .session-meta,
+  .annotation-sync-footer,
   .annotation-row,
   .analysis-loader,
   .analysis-grid,

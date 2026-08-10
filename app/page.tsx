@@ -672,14 +672,6 @@ export default function Home() {
           >
             Export JSON
           </button>
-          <button
-            className="ghost-button"
-            type="button"
-            disabled={!selectedSession || sheetSyncStatus === "syncing"}
-            onClick={syncAnnotationsToSheet}
-          >
-            Sync Sheet
-          </button>
           <button className="ghost-button" type="button" onClick={resetDraft}>
             Reset
           </button>
@@ -1097,6 +1089,22 @@ export default function Home() {
                 </section>
               );
             })}
+          </div>
+          <div className="annotation-sync-footer">
+            <div>
+              <span className={`sheet-sync-badge is-${sheetSyncStatus}`}>
+                Google Sheets sync · {sheetSyncStatus}
+              </span>
+              <p>Sync all answers to Google Sheets after finishing step 10.</p>
+            </div>
+            <button
+              className="sheet-sync-button"
+              type="button"
+              disabled={!selectedSession || sheetSyncStatus === "syncing"}
+              onClick={syncAnnotationsToSheet}
+            >
+              Sync Sheet
+            </button>
           </div>
         </article>
       </section>
