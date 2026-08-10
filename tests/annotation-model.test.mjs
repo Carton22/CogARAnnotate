@@ -155,7 +155,7 @@ test("detects complete step annotations and validates end time", () => {
   assert.equal(model.isStepComplete(completeAnnotation), true);
   assert.equal(
     model.isStepComplete({ ...completeAnnotation, cognitiveStateOrder: [] }),
-    false,
+    true,
   );
   assert.equal(
     model.isStepComplete({ ...completeAnnotation, cognitiveEngagement: undefined }),

@@ -455,8 +455,7 @@ export function isStepComplete(annotation: StepAnnotation): boolean {
     typeof annotation.relianceAmount === "number" &&
     typeof annotation.confidence === "number" &&
     typeof annotation.cognitiveEngagement === "number" &&
-    typeof annotation.taskPlanningEngagement === "number" &&
-    cognitiveStateOrderFromAnnotation(annotation).length > 0
+    typeof annotation.taskPlanningEngagement === "number"
   );
 }
 
