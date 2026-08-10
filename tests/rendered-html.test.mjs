@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-async function render() {
+async function render(path = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request("http://localhost/", {
+    new Request(`http://localhost${path}`, {
       headers: { accept: "text/html" },
     }),
     {
@@ -61,6 +61,25 @@ test("server-renders the CogAR annotation console shell", async () => {
   assert.doesNotMatch(html, /Step annotations<\/span><strong>0/);
   assert.match(html, /<option value="P01"/);
   assert.match(html, /<option value="P36"/);
+});
+
+test("analysis page omits training and keeps uploads in review panels", async () => {
+  const response = await render("/analysis");
+  assert.equal(response.status, 200);
+
+  const html = await response.text();
+  assert.match(html, /ANALYSIS PLATFORM/);
+  assert.doesNotMatch(html, /Training plan/);
+  assert.match(html, /Sandwich plan/);
+  assert.match(html, /Shelf assembly plan/);
+  assert.match(html, /Boba tea plan/);
+  assert.match(html, /Table assembly plan/);
+  assert.match(html, /Import AI timing CSV/);
+  assert.match(html, /RGB third-person view/);
+  assert.match(html, /Eye camera view/);
+  assert.match(html, /Estimated eye gaze view/);
+  assert.match(html, /ISO start timestamp/);
+  assert.match(html, /heart rate/i);
 });
 
 test("rendered console does not include the removed starter skeleton", async () => {

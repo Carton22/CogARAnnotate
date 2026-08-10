@@ -938,6 +938,270 @@ h3 {
   resize: vertical;
 }
 
+.analysis-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 420px);
+  gap: 28px;
+  align-items: end;
+  margin: 0 8px 23px;
+}
+
+.analysis-status {
+  padding: 17px 19px;
+  border: 1px solid rgba(218, 204, 190, 0.82);
+  border-radius: 16px;
+  background: rgba(255, 253, 249, 0.94);
+  box-shadow: var(--shadow);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.analysis-loader {
+  display: grid;
+  grid-template-columns: minmax(280px, 520px);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.analysis-source {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 13px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid rgba(218, 204, 190, 0.82);
+  border-radius: 16px;
+  background: rgba(255, 253, 249, 0.94);
+  box-shadow: var(--shadow);
+}
+
+.analysis-source-wide {
+  grid-column: auto;
+}
+
+.analysis-source > div,
+.analysis-view .section-heading > div,
+.analysis-step-name,
+.analysis-step-row label,
+.analysis-range-readout {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.analysis-source strong,
+.analysis-step-name strong,
+.analysis-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analysis-source span,
+.analysis-step-name span,
+.analysis-source label span,
+.analysis-step-row label span,
+.analysis-range-readout span,
+.analysis-file-name {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.analysis-source > label:not(.upload-button) {
+  grid-column: 1 / -1;
+}
+
+.analysis-source input[type="datetime-local"],
+.analysis-step-row input {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 11px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.analysis-view {
+  overflow: hidden;
+  border: 1px solid rgba(218, 204, 190, 0.82);
+  border-radius: 16px;
+  background: rgba(255, 253, 249, 0.94);
+  box-shadow: var(--shadow);
+}
+
+.analysis-view .section-heading {
+  min-height: 78px;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.analysis-view .section-heading h3 {
+  max-width: none;
+  white-space: normal;
+}
+
+.analysis-stream-start {
+  display: grid;
+  max-width: 360px;
+  gap: 5px;
+}
+
+.analysis-stream-start span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.analysis-stream-start input {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.analysis-view-tools {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.analysis-view-tools > strong {
+  color: var(--navy);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 18px;
+}
+
+.analysis-upload-button {
+  min-width: 112px;
+  justify-content: center;
+}
+
+.analysis-view video,
+.analysis-view canvas,
+.analysis-empty {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #101927;
+}
+
+.analysis-view video {
+  object-fit: contain;
+}
+
+.analysis-view canvas {
+  background: var(--paper);
+}
+
+.analysis-empty {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: #dce7f5;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.analysis-steps {
+  margin-bottom: 18px;
+}
+
+.analysis-steps .annotation-card {
+  overflow: visible;
+}
+
+.annotation-card-header {
+  display: flex;
+  min-height: 96px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--line);
+  background: #fbf6ef;
+}
+
+.annotation-card-header > div {
+  min-width: 0;
+}
+
+.annotation-card-header .eyebrow {
+  overflow-wrap: anywhere;
+}
+
+.annotation-card-header h3 {
+  white-space: normal;
+}
+
+.annotation-card-header > strong {
+  flex: 0 0 auto;
+  color: var(--navy);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 22px;
+}
+
+.analysis-step-row {
+  display: grid;
+  grid-template-columns: 48px minmax(260px, 1fr) minmax(150px, 190px) minmax(150px, 190px) minmax(112px, auto);
+  gap: 14px;
+  align-items: center;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+}
+
+.analysis-step-row.is-active {
+  background: rgba(59, 130, 246, 0.055);
+}
+
+.analysis-range-readout strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 13px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.step-index {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 12px;
+  background: #fff0d8;
+  color: #a96a18;
+  font-family: var(--font-geist-mono), monospace;
+  font-weight: 900;
+}
+
 footer {
   display: flex;
   justify-content: space-between;
@@ -952,8 +1216,22 @@ footer p {
 
 @media (max-width: 1120px) {
   .workspace-grid,
-  .annotation-intro {
+  .annotation-intro,
+  .analysis-intro {
     grid-template-columns: 1fr;
+  }
+
+  .analysis-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analysis-step-row {
+    grid-template-columns: 48px minmax(220px, 1fr) minmax(150px, 1fr) minmax(150px, 1fr);
+  }
+
+  .analysis-step-row .task-start-button {
+    grid-column: 2 / -1;
+    justify-content: center;
   }
 
   .video-card {
@@ -1027,9 +1305,29 @@ footer p {
 
   .session-meta,
   .annotation-row,
+  .analysis-loader,
+  .analysis-grid,
+  .analysis-step-row,
   .time-controls,
   .segmented-control {
     grid-template-columns: 1fr;
+  }
+
+  .analysis-step-row .task-start-button {
+    grid-column: auto;
+  }
+
+  .analysis-view .section-heading,
+  .annotation-card-header {
+    display: grid;
+  }
+
+  .analysis-view-tools {
+    justify-content: space-between;
+  }
+
+  .analysis-stream-start {
+    max-width: none;
   }
 
   .annotation-row {
