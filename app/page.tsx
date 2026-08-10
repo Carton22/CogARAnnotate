@@ -12,12 +12,14 @@ import {
   buildExportRows,
   createDraftSession,
   createEmptyAnnotations,
+  cognitiveStateOrderFromAnnotation,
   createUploadSession,
   applyStepTimingRanges,
   deriveStepTimingRangesFromCsv,
   extractQuickTimeStartIso,
   formatTimecode,
   isStepComplete,
+  randomizeCognitiveStatesForStep,
   type CognitiveState,
   type RecordingSession,
   type StepAnnotation,
@@ -53,6 +55,9 @@ const cognitiveStates: { value: CognitiveState; label: string }[] = [
     label: "Not fully understand or forget suggestion",
   },
 ];
+const cognitiveStateLabels = Object.fromEntries(
+  cognitiveStates.map((state) => [state.value, state.label]),
+) as Record<CognitiveState, string>;
 
 type SavedState = {
   activePlanId: PlanId;
@@ -531,6 +536,68 @@ export default function Home() {
     }
   };
 
+  const setCognitiveStateOrder = (
+    stepNumber: number,
+    cognitiveStateOrder: CognitiveState[],
+  ) => {
+    updateAnnotation(stepNumber, (current) => ({
+      ...current,
+      cognitiveStateOrder,
+      cognitiveState: cognitiveStateOrder[0],
+      updatedAt: nowIso(),
+    }));
+  };
+
+  const toggleCognitiveState = (
+    annotation: StepAnnotation,
+    state: CognitiveState,
+  ) => {
+    const currentOrder = cognitiveStateOrderFromAnnotation(annotation);
+    const nextOrder = currentOrder.includes(state)
+      ? currentOrder.filter((selectedState) => selectedState !== state)
+      : [...currentOrder, state];
+    setCognitiveStateOrder(annotation.stepNumber, nextOrder);
+  };
+
+  const moveCognitiveState = (
+    annotation: StepAnnotation,
+    state: CognitiveState,
+    direction: -1 | 1,
+  ) => {
+    const currentOrder = cognitiveStateOrderFromAnnotation(annotation);
+    const currentIndex = currentOrder.indexOf(state);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= currentOrder.length) {
+      return;
+    }
+    const nextOrder = [...currentOrder];
+    [nextOrder[currentIndex], nextOrder[nextIndex]] = [
+      nextOrder[nextIndex],
+      nextOrder[currentIndex],
+    ];
+    setCognitiveStateOrder(annotation.stepNumber, nextOrder);
+  };
+
+  const dragCognitiveState = (
+    annotation: StepAnnotation,
+    draggedState: CognitiveState,
+    targetState: CognitiveState,
+  ) => {
+    if (draggedState === targetState) return;
+    const currentOrder = cognitiveStateOrderFromAnnotation(annotation);
+    if (!currentOrder.includes(draggedState) || !currentOrder.includes(targetState)) {
+      return;
+    }
+    const withoutDragged = currentOrder.filter((state) => state !== draggedState);
+    const targetIndex = withoutDragged.indexOf(targetState);
+    const nextOrder = [
+      ...withoutDragged.slice(0, targetIndex),
+      draggedState,
+      ...withoutDragged.slice(targetIndex),
+    ];
+    setCognitiveStateOrder(annotation.stepNumber, nextOrder);
+  };
+
   const resetDraft = () => {
     if (!window.confirm("Reset the current annotation draft on this device?"))
       return;
@@ -794,6 +861,19 @@ export default function Home() {
             {annotationRows.map((annotation) => {
               const step = activePlan.tasks[annotation.stepNumber - 1];
               const complete = isStepComplete(annotation);
+              const selectedCognitiveStates =
+                cognitiveStateOrderFromAnnotation(annotation);
+              const randomizedCognitiveStates = randomizeCognitiveStatesForStep(
+                participantId,
+                activePlan.id,
+                annotation.stepNumber,
+              );
+              const orderedCognitiveStates = [
+                ...selectedCognitiveStates,
+                ...randomizedCognitiveStates.filter(
+                  (state) => !selectedCognitiveStates.includes(state),
+                ),
+              ];
 
               return (
                 <section
@@ -896,29 +976,96 @@ export default function Home() {
                     />
                   </label>
 
-                  <label className="state-select">
-                    <span>Cognitive state</span>
+                  <label className="range-control">
+                    <span>
+                      Task planning
+                      <output>{annotation.taskPlanningEngagement ?? "-"}</output>
+                    </span>
                     <small>
-                      What kind of cognitive states you are in?
+                      How much did you actively think through how to complete
+                      this task? 0 = Not at all; 7 = Completely
                     </small>
-                    <select
-                      value={annotation.cognitiveState ?? ""}
+                    <input
+                      min={0}
+                      max={7}
+                      step={1}
+                      type="range"
+                      value={annotation.taskPlanningEngagement ?? 0}
                       onChange={(event) =>
                         updateAnnotation(annotation.stepNumber, (current) => ({
                           ...current,
-                          cognitiveState: event.target.value as CognitiveState,
+                          taskPlanningEngagement: Number(event.target.value),
                           updatedAt: nowIso(),
                         }))
                       }
-                    >
-                      <option value="">Choose state</option>
-                      {cognitiveStates.map((state) => (
-                        <option value={state.value} key={state.value}>
-                          {state.label}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </label>
+
+                  <fieldset className="state-order">
+                    <legend>Cognitive state</legend>
+                    <small>
+                      Tick every state you experienced, then drag selected states
+                      into transition order.
+                    </small>
+                    <div className="state-order-list">
+                      {orderedCognitiveStates.map((state) => {
+                        const selectedIndex = selectedCognitiveStates.indexOf(state);
+                        const isSelected = selectedIndex >= 0;
+                        return (
+                          <div
+                            className={`state-order-item ${isSelected ? "is-selected" : ""}`}
+                            draggable={isSelected}
+                            onDragStart={(event) => {
+                              event.dataTransfer.effectAllowed = "move";
+                              event.dataTransfer.setData("text/plain", state);
+                            }}
+                            onDragOver={(event) => {
+                              if (isSelected) event.preventDefault();
+                            }}
+                            onDrop={(event) => {
+                              event.preventDefault();
+                              dragCognitiveState(
+                                annotation,
+                                event.dataTransfer.getData("text/plain") as CognitiveState,
+                                state,
+                              );
+                            }}
+                            key={state}
+                          >
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleCognitiveState(annotation, state)}
+                              />
+                              <span>{cognitiveStateLabels[state]}</span>
+                            </label>
+                            {isSelected && (
+                              <div className="state-order-tools" aria-label="Reorder selected state">
+                                <span>{selectedIndex + 1}</span>
+                                <button
+                                  type="button"
+                                  aria-label={`Move ${cognitiveStateLabels[state]} earlier`}
+                                  disabled={selectedIndex === 0}
+                                  onClick={() => moveCognitiveState(annotation, state, -1)}
+                                >
+                                  ↑
+                                </button>
+                                <button
+                                  type="button"
+                                  aria-label={`Move ${cognitiveStateLabels[state]} later`}
+                                  disabled={selectedIndex === selectedCognitiveStates.length - 1}
+                                  onClick={() => moveCognitiveState(annotation, state, 1)}
+                                >
+                                  ↓
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </fieldset>
 
                   <label className="notes-field">
                     <span>What&apos;s your thinking process at that step?</span>

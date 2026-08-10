@@ -10,6 +10,17 @@ export type CognitiveState =
   | "taking-actions"
   | "not-understand-or-forget-suggestion";
 
+export const cognitiveStateValues: CognitiveState[] = [
+  "thinking-verifying-suggestion",
+  "deferring-thinking-for-later",
+  "thinking-about-new-action",
+  "waiting-for-suggestion",
+  "not-thinking",
+  "deferring-action-for-later",
+  "taking-actions",
+  "not-understand-or-forget-suggestion",
+];
+
 export type RelianceType =
   | "appropriate-reliance"
   | "appropriate-rejection"
@@ -58,6 +69,8 @@ export type StepAnnotation = {
   relianceType?: RelianceType;
   confidence?: number;
   cognitiveEngagement?: number;
+  taskPlanningEngagement?: number;
+  cognitiveStateOrder?: CognitiveState[];
   cognitiveState?: CognitiveState;
   notes?: string;
   updatedAt: string;
@@ -77,6 +90,7 @@ export type AnnotationExportRow = {
   reliance_amount: number | "";
   confidence: number | "";
   cognitive_engagement: number | "";
+  task_planning_engagement: number | "";
   cognitive_state: string;
   notes: string;
   source_vrs_name: string;
@@ -112,6 +126,7 @@ const exportFields: (keyof AnnotationExportRow)[] = [
   "reliance_amount",
   "confidence",
   "cognitive_engagement",
+  "task_planning_engagement",
   "cognitive_state",
   "notes",
   "source_vrs_name",
@@ -122,6 +137,51 @@ const exportFields: (keyof AnnotationExportRow)[] = [
 const quickTimeEpochOffsetSeconds = 2082844800;
 const aiDecisionActions = new Set(["ai accepted", "ai rejected"]);
 const aiDecisionEndOffsetSeconds = 5;
+
+function hashString(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function seededRandom(seed: number): () => number {
+  let value = seed || 1;
+  return () => {
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function randomizeCognitiveStatesForStep(
+  participantId: string,
+  taskPlanId: string,
+  stepNumber: number,
+): CognitiveState[] {
+  const random = seededRandom(
+    hashString(`${participantId.trim()}:${taskPlanId}:${stepNumber}`),
+  );
+  const states = [...cognitiveStateValues];
+  for (let index = states.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [states[index], states[swapIndex]] = [states[swapIndex], states[index]];
+  }
+  return states;
+}
+
+export function cognitiveStateOrderFromAnnotation(
+  annotation: Pick<StepAnnotation, "cognitiveState" | "cognitiveStateOrder">,
+): CognitiveState[] {
+  if (Array.isArray(annotation.cognitiveStateOrder)) {
+    return annotation.cognitiveStateOrder.filter((state) =>
+      cognitiveStateValues.includes(state),
+    );
+  }
+  return annotation.cognitiveState ? [annotation.cognitiveState] : [];
+}
 
 export function formatTimecode(totalSeconds: number): string {
   const safeSeconds = Math.max(0, Math.floor(totalSeconds));
@@ -399,7 +459,8 @@ export function isStepComplete(annotation: StepAnnotation): boolean {
     typeof annotation.relianceAmount === "number" &&
     typeof annotation.confidence === "number" &&
     typeof annotation.cognitiveEngagement === "number" &&
-    Boolean(annotation.cognitiveState)
+    typeof annotation.taskPlanningEngagement === "number" &&
+    cognitiveStateOrderFromAnnotation(annotation).length > 0
   );
 }
 
@@ -436,7 +497,11 @@ export function buildExportRows(
         typeof annotation.cognitiveEngagement === "number"
           ? annotation.cognitiveEngagement
           : "",
-      cognitive_state: annotation.cognitiveState ?? "",
+      task_planning_engagement:
+        typeof annotation.taskPlanningEngagement === "number"
+          ? annotation.taskPlanningEngagement
+          : "",
+      cognitive_state: cognitiveStateOrderFromAnnotation(annotation).join(" > "),
       notes: annotation.notes ?? "",
       source_vrs_name: session.sourceVrsName,
       rgb_video_url: session.rgbVideoUrl,

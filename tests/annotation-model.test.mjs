@@ -146,18 +146,23 @@ test("detects complete step annotations and validates end time", () => {
     relianceAmount: 4,
     confidence: 6,
     cognitiveEngagement: 5,
-    cognitiveState: "taking-actions",
+    taskPlanningEngagement: 6,
+    cognitiveStateOrder: ["not-thinking", "taking-actions"],
     notes: "",
     updatedAt: "2026-08-04T14:05:00.000Z",
   };
 
   assert.equal(model.isStepComplete(completeAnnotation), true);
   assert.equal(
-    model.isStepComplete({ ...completeAnnotation, cognitiveState: undefined }),
+    model.isStepComplete({ ...completeAnnotation, cognitiveStateOrder: [] }),
     false,
   );
   assert.equal(
     model.isStepComplete({ ...completeAnnotation, cognitiveEngagement: undefined }),
+    false,
+  );
+  assert.equal(
+    model.isStepComplete({ ...completeAnnotation, taskPlanningEngagement: undefined }),
     false,
   );
   assert.throws(
@@ -169,6 +174,32 @@ test("detects complete step annotations and validates end time", () => {
       ),
     /End time/,
   );
+});
+
+test("normalizes legacy single cognitive state into an ordered state list", () => {
+  assert.deepEqual(
+    model.cognitiveStateOrderFromAnnotation({
+      cognitiveState: "taking-actions",
+    }),
+    ["taking-actions"],
+  );
+  assert.deepEqual(
+    model.cognitiveStateOrderFromAnnotation({
+      cognitiveState: "taking-actions",
+      cognitiveStateOrder: ["not-thinking", "taking-actions"],
+    }),
+    ["not-thinking", "taking-actions"],
+  );
+});
+
+test("randomizes cognitive state appearance by participant task and step", () => {
+  const first = model.randomizeCognitiveStatesForStep("P01", "sandwich", 1);
+  const firstAgain = model.randomizeCognitiveStatesForStep("P01", "sandwich", 1);
+  const secondStep = model.randomizeCognitiveStatesForStep("P01", "sandwich", 2);
+
+  assert.deepEqual(first, firstAgain);
+  assert.notDeepEqual(first, secondStep);
+  assert.deepEqual([...first].sort(), [...model.cognitiveStateValues].sort());
 });
 
 test("builds export rows and CSV with stable field names", () => {
@@ -198,7 +229,8 @@ test("builds export rows and CSV with stable field names", () => {
     relianceAmount: 4,
     confidence: 6,
     cognitiveEngagement: 5,
-    cognitiveState: "taking-actions",
+    taskPlanningEngagement: 6,
+    cognitiveStateOrder: ["not-thinking", "taking-actions"],
     notes: "participant checked the plate",
     updatedAt: "2026-08-04T14:05:00.000Z",
   };
@@ -218,6 +250,7 @@ test("builds export rows and CSV with stable field names", () => {
     "reliance_amount",
     "confidence",
     "cognitive_engagement",
+    "task_planning_engagement",
     "cognitive_state",
     "notes",
     "source_vrs_name",
@@ -226,6 +259,8 @@ test("builds export rows and CSV with stable field names", () => {
   ]);
   assert.equal(rows[0].duration_seconds, 4);
   assert.equal(rows[0].start_timecode, "00:01");
+  assert.equal(rows[0].task_planning_engagement, 6);
+  assert.equal(rows[0].cognitive_state, "not-thinking > taking-actions");
 
   const csv = model.buildCsv(rows);
   assert.match(csv, /^"session_id","participant_id","task_plan_id"/);

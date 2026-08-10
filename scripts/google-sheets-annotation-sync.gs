@@ -12,6 +12,7 @@ const HEADERS = [
   "reliance",
   "confidence",
   "cognitive_engagement",
+  "task_planning_engagement",
   "cognitive_state",
   "notes",
 ];

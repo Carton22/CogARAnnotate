@@ -876,6 +876,7 @@ h3 {
 
 .range-control small,
 .state-select small,
+.state-order small,
 .notes-toolbar small {
   color: var(--muted);
   font-size: 11px;
@@ -898,6 +899,107 @@ h3 {
 
 .state-select select {
   width: 100%;
+}
+
+.state-order {
+  display: grid;
+  gap: 8px;
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+}
+
+.state-order legend {
+  padding: 0;
+  color: var(--ink);
+  font-weight: 850;
+}
+
+.state-order-list {
+  display: grid;
+  gap: 8px;
+}
+
+.state-order-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 46px;
+  padding: 9px 10px;
+  border: 1px solid rgba(31, 41, 55, 0.13);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.state-order-item.is-selected {
+  border-color: rgba(59, 130, 246, 0.45);
+  background: rgba(59, 130, 246, 0.09);
+  cursor: grab;
+}
+
+.state-order-item.is-selected:active {
+  cursor: grabbing;
+}
+
+.state-order-item label {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  font-weight: 760;
+  line-height: 1.25;
+}
+
+.state-order-item input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  accent-color: var(--blue);
+}
+
+.state-order-item label span {
+  min-width: 0;
+}
+
+.state-order-tools {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.state-order-tools span {
+  display: inline-grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 999px;
+  background: white;
+  color: var(--blue);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.state-order-tools button {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border-radius: 999px;
+  border-color: rgba(59, 130, 246, 0.35);
+  background: white;
+  color: var(--blue);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.state-order-tools button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .notes-field {

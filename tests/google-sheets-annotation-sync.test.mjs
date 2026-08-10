@@ -74,6 +74,7 @@ test("appends annotation rows to participant sheets", async () => {
             reliance_amount: 5,
             confidence: 6,
             cognitive_engagement: 4,
+            task_planning_engagement: 5,
             cognitive_state: "taking-actions",
             notes: "checked the recommendation",
             source_vrs_name: "No RGB recording loaded",
@@ -103,15 +104,18 @@ test("appends annotation rows to participant sheets", async () => {
     "reliance",
     "confidence",
     "cognitive_engagement",
+    "task_planning_engagement",
     "cognitive_state",
     "notes",
   ]);
   assert.equal(appendedRows.length, 1);
   assert.equal(appendedRows[0].sheet, "P01");
-  assert.equal(appendedRows[0].row.length, 15);
+  assert.equal(appendedRows[0].row.length, 16);
   assert.equal(appendedRows[0].row[0], "draft-P01-sandwich");
   assert.equal(appendedRows[0].row[1], "P01");
-  assert.equal(appendedRows[0].row[14], "checked the recommendation");
+  assert.equal(appendedRows[0].row[13], 5);
+  assert.equal(appendedRows[0].row[14], "taking-actions");
+  assert.equal(appendedRows[0].row[15], "checked the recommendation");
   assert.equal(appendedRows[0].row[10], 5);
 });
 
