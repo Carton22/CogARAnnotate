@@ -96,3 +96,11 @@ test("rendered console does not include the removed starter skeleton", async () 
   assert.doesNotMatch(html, /react-loading-skeleton/i);
   assert.doesNotMatch(html, /sites-skeleton/i);
 });
+
+test("boba distractors align with CogARReliance wording", async () => {
+  const { planForParticipant } = await import("../app/task-plans.ts");
+  const taskNames = planForParticipant("boba", "P01").tasks.map((task) => task.name);
+
+  assert.ok(taskNames.includes("Grab a fork"));
+  assert.ok(!taskNames.includes("Mix up the current cup"));
+});

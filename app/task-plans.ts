@@ -96,7 +96,7 @@ const randomizedTaskConfigs = {
     correctSteps: bobaCorrectSteps,
     distractorSteps: [
       "Add white sugar to the cup",
-      "Mix up the current cup",
+      "Grab a fork",
       "Add a piece of lemon on the edge",
     ],
   },
