@@ -11,6 +11,7 @@ const HEADERS = [
   "duration_seconds",
   "reliance",
   "confidence",
+  "final_action_confidence",
   "cognitive_engagement",
   "task_planning_engagement",
   "cognitive_state",

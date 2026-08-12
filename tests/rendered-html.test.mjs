@@ -46,6 +46,7 @@ test("server-renders the CogAR annotation console shell", async () => {
   assert.doesNotMatch(html, /Mark start/);
   assert.match(html, /To what extent did you rely on the AI during this step/);
   assert.match(html, /To what extent did you trust the AI/);
+  assert.match(html, /How confident are you about your final action at this step/);
   assert.match(html, /To what extent did you critically evaluate the AI/);
   assert.match(html, /How much did you actively think through how to complete this task/);
   assert.doesNotMatch(html, /Cognitive state/);
@@ -106,19 +107,19 @@ test("boba distractors align with CogARReliance wording", async () => {
   assert.ok(!taskNames.includes("Mix up the current cup"));
 });
 
-test("all four Likert questions use a 1 through 7 scale", async () => {
+test("all five Likert questions use a 1 through 7 scale", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const likertSection = page.slice(
     page.indexOf("Reliance on AI"),
     page.indexOf('className="notes-field"'),
   );
 
-  assert.equal(likertSection.match(/min=\{1\}/g)?.length, 4);
-  assert.equal(likertSection.match(/max=\{7\}/g)?.length, 4);
-  assert.equal(likertSection.match(/\?\? 1/g)?.length, 4);
+  assert.equal(likertSection.match(/min=\{1\}/g)?.length, 5);
+  assert.equal(likertSection.match(/max=\{7\}/g)?.length, 5);
+  assert.equal(likertSection.match(/\?\? 1/g)?.length, 5);
   assert.equal(
     likertSection.match(/1\s*=\s*Not\s+at\s+all;\s*7\s*=\s*Completely/g)?.length,
-    4,
+    5,
   );
   assert.doesNotMatch(likertSection, /0 = Not at all/);
   assert.doesNotMatch(likertSection, /min=\{0\}/);

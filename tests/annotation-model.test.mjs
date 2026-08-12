@@ -145,6 +145,7 @@ test("detects complete step annotations and validates end time", () => {
     endSeconds: 5,
     relianceAmount: 4,
     confidence: 6,
+    finalActionConfidence: 7,
     cognitiveEngagement: 5,
     taskPlanningEngagement: 6,
     cognitiveStateOrder: ["not-thinking", "taking-actions"],
@@ -156,6 +157,10 @@ test("detects complete step annotations and validates end time", () => {
   assert.equal(
     model.isStepComplete({ ...completeAnnotation, cognitiveStateOrder: [] }),
     true,
+  );
+  assert.equal(
+    model.isStepComplete({ ...completeAnnotation, finalActionConfidence: undefined }),
+    false,
   );
   assert.equal(
     model.isStepComplete({ ...completeAnnotation, cognitiveEngagement: undefined }),
@@ -228,6 +233,7 @@ test("builds export rows and CSV with stable field names", () => {
     endSeconds: 5,
     relianceAmount: 4,
     confidence: 6,
+    finalActionConfidence: 7,
     cognitiveEngagement: 5,
     taskPlanningEngagement: 6,
     cognitiveStateOrder: ["not-thinking", "taking-actions"],
@@ -249,6 +255,7 @@ test("builds export rows and CSV with stable field names", () => {
     "duration_seconds",
     "reliance_amount",
     "confidence",
+    "final_action_confidence",
     "cognitive_engagement",
     "task_planning_engagement",
     "cognitive_state",
@@ -259,6 +266,7 @@ test("builds export rows and CSV with stable field names", () => {
   ]);
   assert.equal(rows[0].duration_seconds, 4);
   assert.equal(rows[0].start_timecode, "00:01");
+  assert.equal(rows[0].final_action_confidence, 7);
   assert.equal(rows[0].task_planning_engagement, 6);
   assert.equal(rows[0].cognitive_state, "not-thinking > taking-actions");
 

@@ -68,6 +68,7 @@ export type StepAnnotation = {
   relianceAmount?: number;
   relianceType?: RelianceType;
   confidence?: number;
+  finalActionConfidence?: number;
   cognitiveEngagement?: number;
   taskPlanningEngagement?: number;
   cognitiveStateOrder?: CognitiveState[];
@@ -89,6 +90,7 @@ export type AnnotationExportRow = {
   duration_seconds: number | "";
   reliance_amount: number | "";
   confidence: number | "";
+  final_action_confidence: number | "";
   cognitive_engagement: number | "";
   task_planning_engagement: number | "";
   cognitive_state: string;
@@ -125,6 +127,7 @@ const exportFields: (keyof AnnotationExportRow)[] = [
   "duration_seconds",
   "reliance_amount",
   "confidence",
+  "final_action_confidence",
   "cognitive_engagement",
   "task_planning_engagement",
   "cognitive_state",
@@ -454,6 +457,7 @@ export function isStepComplete(annotation: StepAnnotation): boolean {
     typeof annotation.endSeconds === "number" &&
     typeof annotation.relianceAmount === "number" &&
     typeof annotation.confidence === "number" &&
+    typeof annotation.finalActionConfidence === "number" &&
     typeof annotation.cognitiveEngagement === "number" &&
     typeof annotation.taskPlanningEngagement === "number"
   );
@@ -488,6 +492,10 @@ export function buildExportRows(
           : "",
       confidence:
         typeof annotation.confidence === "number" ? annotation.confidence : "",
+      final_action_confidence:
+        typeof annotation.finalActionConfidence === "number"
+          ? annotation.finalActionConfidence
+          : "",
       cognitive_engagement:
         typeof annotation.cognitiveEngagement === "number"
           ? annotation.cognitiveEngagement

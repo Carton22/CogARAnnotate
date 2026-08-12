@@ -841,6 +841,31 @@ export default function Home() {
 
                   <label className="range-control">
                     <span>
+                      Final action confidence
+                      <output>{annotation.finalActionConfidence ?? "-"}</output>
+                    </span>
+                    <small>
+                      How confident are you about your final action at this step?
+                      1 = Not at all; 7 = Completely
+                    </small>
+                    <input
+                      min={1}
+                      max={7}
+                      step={1}
+                      type="range"
+                      value={annotation.finalActionConfidence ?? 1}
+                      onChange={(event) =>
+                        updateAnnotation(annotation.stepNumber, (current) => ({
+                          ...current,
+                          finalActionConfidence: Number(event.target.value),
+                          updatedAt: nowIso(),
+                        }))
+                      }
+                    />
+                  </label>
+
+                  <label className="range-control">
+                    <span>
                       Cognitive engagement
                       <output>{annotation.cognitiveEngagement ?? "-"}</output>
                     </span>
