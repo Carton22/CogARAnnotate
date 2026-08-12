@@ -795,15 +795,15 @@ export default function Home() {
                       <output>{annotation.relianceAmount ?? "-"}</output>
                     </span>
                     <small>
-                      To what extent did you rely on the AI during this step? 0 =
+                      To what extent did you rely on the AI during this step? 1 =
                       Not at all; 7 = Completely
                     </small>
                     <input
-                      min={0}
+                      min={1}
                       max={7}
                       step={1}
                       type="range"
-                      value={annotation.relianceAmount ?? 0}
+                      value={annotation.relianceAmount ?? 1}
                       onChange={(event) =>
                         updateAnnotation(annotation.stepNumber, (current) => ({
                           ...current,
@@ -820,15 +820,15 @@ export default function Home() {
                       <output>{annotation.confidence ?? "-"}</output>
                     </span>
                     <small>
-                      To what extent did you trust the AI&apos;s instructions? 0 = Not
+                      To what extent did you trust the AI&apos;s instructions? 1 = Not
                       at all; 7 = Completely
                     </small>
                     <input
-                      min={0}
+                      min={1}
                       max={7}
                       step={1}
                       type="range"
-                      value={annotation.confidence ?? 0}
+                      value={annotation.confidence ?? 1}
                       onChange={(event) =>
                         updateAnnotation(annotation.stepNumber, (current) => ({
                           ...current,
@@ -846,14 +846,14 @@ export default function Home() {
                     </span>
                     <small>
                       To what extent did you critically evaluate the AI&apos;s
-                      instructions? 0 = Not at all; 7 = Completely
+                      instructions? 1 = Not at all; 7 = Completely
                     </small>
                     <input
-                      min={0}
+                      min={1}
                       max={7}
                       step={1}
                       type="range"
-                      value={annotation.cognitiveEngagement ?? 0}
+                      value={annotation.cognitiveEngagement ?? 1}
                       onChange={(event) =>
                         updateAnnotation(annotation.stepNumber, (current) => ({
                           ...current,
@@ -871,14 +871,14 @@ export default function Home() {
                     </span>
                     <small>
                       How much did you actively think through how to complete
-                      this task? 0 = Not at all; 7 = Completely
+                      this task? 1 = Not at all; 7 = Completely
                     </small>
                     <input
-                      min={0}
+                      min={1}
                       max={7}
                       step={1}
                       type="range"
-                      value={annotation.taskPlanningEngagement ?? 0}
+                      value={annotation.taskPlanningEngagement ?? 1}
                       onChange={(event) =>
                         updateAnnotation(annotation.stepNumber, (current) => ({
                           ...current,

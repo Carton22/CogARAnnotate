@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 async function render(path = "/") {
@@ -103,4 +104,23 @@ test("boba distractors align with CogARReliance wording", async () => {
 
   assert.ok(taskNames.includes("Grab a fork"));
   assert.ok(!taskNames.includes("Mix up the current cup"));
+});
+
+test("all four Likert questions use a 1 through 7 scale", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const likertSection = page.slice(
+    page.indexOf("Reliance on AI"),
+    page.indexOf('className="notes-field"'),
+  );
+
+  assert.equal(likertSection.match(/min=\{1\}/g)?.length, 4);
+  assert.equal(likertSection.match(/max=\{7\}/g)?.length, 4);
+  assert.equal(likertSection.match(/\?\? 1/g)?.length, 4);
+  assert.equal(
+    likertSection.match(/1\s*=\s*Not\s+at\s+all;\s*7\s*=\s*Completely/g)?.length,
+    4,
+  );
+  assert.doesNotMatch(likertSection, /0 = Not at all/);
+  assert.doesNotMatch(likertSection, /min=\{0\}/);
+  assert.doesNotMatch(likertSection, /\?\? 0/);
 });
