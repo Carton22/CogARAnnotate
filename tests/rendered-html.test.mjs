@@ -44,11 +44,26 @@ test("server-renders the CogAR annotation console shell", async () => {
   assert.match(html, /Detected video start ISO/);
   assert.match(html, /Play step/);
   assert.doesNotMatch(html, /Mark start/);
-  assert.match(html, /To what extent did you rely on the AI during this step/);
-  assert.match(html, /To what extent did you trust the AI/);
-  assert.match(html, /How confident are you about your final action at this step/);
-  assert.match(html, /To what extent did you critically evaluate the AI/);
-  assert.match(html, /How much did you actively think through how to complete this task/);
+  assert.match(
+    html,
+    /I completely rely on the AI during this step\. 1 = Strongly disagree; 7 = Strongly agree/,
+  );
+  assert.match(
+    html,
+    /I completely trust the AI&#x27;s instructions at this step\. 1 = Strongly disagree; 7 = Strongly agree/,
+  );
+  assert.match(
+    html,
+    /I am confident about my final action at this step\. 1 = Strongly disagree; 7 = Strongly agree/,
+  );
+  assert.match(
+    html,
+    /I critically evaluate and think about the AI&#x27;s instructions at this step\. 1 = Strongly disagree; 7 = Strongly agree/,
+  );
+  assert.match(
+    html,
+    /I actively think through what to do at this step\. 1 = Strongly disagree; 7 = Strongly agree/,
+  );
   assert.doesNotMatch(html, /Cognitive state/);
   assert.doesNotMatch(html, /Tick every state you experienced/);
   assert.doesNotMatch(html, /type="checkbox"/);
@@ -118,9 +133,11 @@ test("all five Likert questions use a 1 through 7 scale", async () => {
   assert.equal(likertSection.match(/max=\{7\}/g)?.length, 5);
   assert.equal(likertSection.match(/\?\? 1/g)?.length, 5);
   assert.equal(
-    likertSection.match(/1\s*=\s*Not\s+at\s+all;\s*7\s*=\s*Completely/g)?.length,
+    likertSection.match(/1\s*=\s*Strongly\s+disagree;\s*7\s*=\s*Strongly\s+agree/g)
+      ?.length,
     5,
   );
+  assert.doesNotMatch(likertSection, /1\s*=\s*Not\s+at\s+all;\s*7\s*=\s*Completely/);
   assert.doesNotMatch(likertSection, /0 = Not at all/);
   assert.doesNotMatch(likertSection, /min=\{0\}/);
   assert.doesNotMatch(likertSection, /\?\? 0/);

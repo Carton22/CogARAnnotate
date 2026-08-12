@@ -795,8 +795,8 @@ export default function Home() {
                       <output>{annotation.relianceAmount ?? "-"}</output>
                     </span>
                     <small>
-                      To what extent did you rely on the AI during this step? 1 =
-                      Not at all; 7 = Completely
+                      I completely rely on the AI during this step. 1 =
+                      Strongly disagree; 7 = Strongly agree
                     </small>
                     <input
                       min={1}
@@ -820,8 +820,8 @@ export default function Home() {
                       <output>{annotation.confidence ?? "-"}</output>
                     </span>
                     <small>
-                      To what extent did you trust the AI&apos;s instructions? 1 = Not
-                      at all; 7 = Completely
+                      I completely trust the AI&apos;s instructions at this step. 1 =
+                      Strongly disagree; 7 = Strongly agree
                     </small>
                     <input
                       min={1}
@@ -845,8 +845,8 @@ export default function Home() {
                       <output>{annotation.finalActionConfidence ?? "-"}</output>
                     </span>
                     <small>
-                      How confident are you about your final action at this step?
-                      1 = Not at all; 7 = Completely
+                      I am confident about my final action at this step.
+                      1 = Strongly disagree; 7 = Strongly agree
                     </small>
                     <input
                       min={1}
@@ -870,8 +870,9 @@ export default function Home() {
                       <output>{annotation.cognitiveEngagement ?? "-"}</output>
                     </span>
                     <small>
-                      To what extent did you critically evaluate the AI&apos;s
-                      instructions? 1 = Not at all; 7 = Completely
+                      I critically evaluate and think about the AI&apos;s
+                      instructions at this step. 1 = Strongly disagree; 7 =
+                      Strongly agree
                     </small>
                     <input
                       min={1}
@@ -895,8 +896,8 @@ export default function Home() {
                       <output>{annotation.taskPlanningEngagement ?? "-"}</output>
                     </span>
                     <small>
-                      How much did you actively think through how to complete
-                      this task? 1 = Not at all; 7 = Completely
+                      I actively think through what to do at this step. 1 =
+                      Strongly disagree; 7 = Strongly agree
                     </small>
                     <input
                       min={1}
