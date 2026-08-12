@@ -5,20 +5,19 @@ export type StepRange = {
   decisionTimestampIso?: string;
 };
 
-export type HeartRateRow = {
-  iso: string;
-  bpm: number;
+export type AnalysisStreamKey = "rgb" | "eye" | "gaze";
+
+export type AnalysisVideoStream = {
+  fileName: string;
+  objectUrl: string;
 };
 
-const timestampColumns = [
-  "timestamp",
-  "time",
-  "iso",
-  "datetime",
-  "date_time",
-  "created_at",
-];
-const bpmColumns = ["heart_rate", "heartrate", "hr", "bpm", "pulse"];
+type VrsTimingFiles = {
+  vrsJson: string;
+  rgbTimingCsv: string;
+  eyeTimingCsv?: string;
+};
+
 const stepCompletionActions = new Set(["complete"]);
 
 function parseIso(value: string) {
@@ -50,13 +49,6 @@ function parseCsvLine(line: string) {
   return cells;
 }
 
-function findColumn(headers: string[], candidates: string[]) {
-  const normalized = headers.map((header) =>
-    header.trim().toLowerCase().replace(/\s+/g, "_"),
-  );
-  return normalized.findIndex((header) => candidates.includes(header));
-}
-
 function normalizeParticipantId(participantId: string) {
   const numeric = Number(String(participantId).replace(/\D/g, ""));
   if (Number.isFinite(numeric) && numeric > 0) {
@@ -80,6 +72,18 @@ function parseCsvRows(csv: string) {
   });
 }
 
+function firstVrsDeviceTimeNs(csv: string) {
+  const firstRow = parseCsvRows(csv)[0];
+  const value = Number(firstRow?.vrs_device_time_ns);
+  return Number.isFinite(value) ? value : null;
+}
+
+function timestampIsoFromUnixSeconds(value: unknown) {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds)) return "";
+  return new Date(seconds * 1000).toISOString();
+}
+
 export function secondsBetweenIso(baseIso: string, targetIso: string) {
   const base = parseIso(baseIso);
   const target = parseIso(targetIso);
@@ -91,26 +95,6 @@ export function isValidIsoRange(startIso: string, endIso: string) {
   const start = parseIso(startIso);
   const end = parseIso(endIso);
   return start !== null && end !== null && end > start;
-}
-
-export function parseHeartRateCsv(csv: string): HeartRateRow[] {
-  const lines = csv.split(/\r?\n/).filter((line) => line.trim());
-  if (lines.length < 2) return [];
-  const headers = parseCsvLine(lines[0]);
-  const timestampIndex = findColumn(headers, timestampColumns);
-  const bpmIndex = findColumn(headers, bpmColumns);
-  if (timestampIndex === -1 || bpmIndex === -1) return [];
-
-  return lines
-    .slice(1)
-    .map((line) => {
-      const cells = parseCsvLine(line);
-      const timestamp = parseIso(cells[timestampIndex] ?? "");
-      const bpm = Number(cells[bpmIndex]);
-      if (timestamp === null || !Number.isFinite(bpm)) return null;
-      return { iso: new Date(timestamp).toISOString(), bpm };
-    })
-    .filter((row): row is HeartRateRow => row !== null);
 }
 
 export function deriveAnalysisStepRangesFromCsv(
@@ -171,16 +155,40 @@ export function deriveAnalysisStepRangesFromCsv(
     });
 }
 
-export function filterHeartRateRows(
-  rows: HeartRateRow[],
-  startIso: string,
-  endIso: string,
+export function deriveStreamStartIsoFromVrsTimingFiles(files: VrsTimingFiles) {
+  const parsed = JSON.parse(files.vrsJson) as { start_time?: unknown };
+  const baseIso = timestampIsoFromUnixSeconds(parsed.start_time);
+  if (!baseIso) {
+    throw new Error("VRS JSON does not include a numeric start_time.");
+  }
+
+  const rgbFirstNs = firstVrsDeviceTimeNs(files.rgbTimingCsv);
+  const eyeFirstNs = files.eyeTimingCsv
+    ? firstVrsDeviceTimeNs(files.eyeTimingCsv)
+    : null;
+  const eyeOffsetMs =
+    rgbFirstNs !== null && eyeFirstNs !== null
+      ? Math.round((rgbFirstNs - eyeFirstNs) / 1_000_000)
+      : 0;
+  const baseMs = Date.parse(baseIso);
+
+  return {
+    rgb: baseIso,
+    eye: new Date(baseMs - eyeOffsetMs).toISOString(),
+    gaze: baseIso,
+  };
+}
+
+export function replaceAnalysisVideoStream(
+  streams: Record<AnalysisStreamKey, AnalysisVideoStream | null>,
+  key: AnalysisStreamKey,
+  nextStream: AnalysisVideoStream,
 ) {
-  const start = parseIso(startIso);
-  const end = parseIso(endIso);
-  if (start === null || end === null || end < start) return [];
-  return rows.filter((row) => {
-    const timestamp = parseIso(row.iso);
-    return timestamp !== null && timestamp >= start && timestamp <= end;
-  });
+  return {
+    streams: {
+      ...streams,
+      [key]: nextStream,
+    },
+    replacedObjectUrl: streams[key]?.objectUrl ?? null,
+  };
 }

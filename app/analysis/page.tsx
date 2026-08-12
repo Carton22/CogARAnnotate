@@ -3,28 +3,29 @@
 import {
   type ChangeEvent,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
 import {
   deriveAnalysisStepRangesFromCsv,
-  filterHeartRateRows,
+  deriveStreamStartIsoFromVrsTimingFiles,
   isValidIsoRange,
-  parseHeartRateCsv,
+  replaceAnalysisVideoStream,
   secondsBetweenIso,
-  type HeartRateRow,
+  type AnalysisStreamKey,
+  type AnalysisVideoStream,
   type StepRange,
 } from "../analysis-model";
 import { formatTimecode } from "../annotation-model";
 import { planForParticipant, plans, type PlanId } from "../task-plans";
 
-type StreamKey = "rgb" | "eye" | "gaze";
+type StreamKey = AnalysisStreamKey;
 type AnalysisPlanId = Exclude<PlanId, "training">;
 
-type VideoStream = {
-  fileName: string;
-  objectUrl: string;
+type VideoStream = AnalysisVideoStream;
+type StreamLoadStatus = {
+  state: "idle" | "loading" | "ready" | "error";
+  message: string;
 };
 
 type AnalysisState = {
@@ -33,6 +34,7 @@ type AnalysisState = {
   streamStartIso?: Record<StreamKey, string>;
   rangesByPlan: Record<string, Record<number, StepRange>>;
   timingFileName?: string;
+  vrsTimingFileName?: string;
 };
 
 const STORAGE_KEY = "cogar-analysis-platform-v1";
@@ -47,8 +49,23 @@ const streamLabels: Record<StreamKey, string> = {
   gaze: "Estimated eye gaze view",
 };
 
+const mediaErrorMessages: Record<number, string> = {
+  1: "Video loading was aborted.",
+  2: "The browser lost access to this video while loading it.",
+  3: "The browser cannot decode this video. Export it as H.264 MP4, then upload again.",
+  4: "This video format is not supported by the browser. Export it as H.264 MP4, then upload again.",
+};
+
 function emptyStreamStartIso(): Record<StreamKey, string> {
   return { rgb: "", eye: "", gaze: "" };
+}
+
+function emptyStreamStatus(): Record<StreamKey, StreamLoadStatus> {
+  return {
+    rgb: { state: "idle", message: "" },
+    eye: { state: "idle", message: "" },
+    gaze: { state: "idle", message: "" },
+  };
 }
 
 function storageKeyFor(planId: PlanId, participantId: string) {
@@ -57,7 +74,9 @@ function storageKeyFor(planId: PlanId, participantId: string) {
 
 function useObjectUrlCleanup(streams: Record<StreamKey, VideoStream | null>) {
   const streamsRef = useRef(streams);
-  streamsRef.current = streams;
+  useEffect(() => {
+    streamsRef.current = streams;
+  }, [streams]);
   useEffect(() => {
     return () => {
       Object.values(streamsRef.current).forEach((stream) => {
@@ -79,11 +98,12 @@ export default function AnalysisPage() {
     eye: null,
     gaze: null,
   });
+  const [streamStatus, setStreamStatus] =
+    useState<Record<StreamKey, StreamLoadStatus>>(emptyStreamStatus);
   const [streamStartIso, setStreamStartIso] =
     useState<Record<StreamKey, string>>(emptyStreamStartIso);
-  const [heartRows, setHeartRows] = useState<HeartRateRow[]>([]);
-  const [heartFileName, setHeartFileName] = useState("");
   const [timingFileName, setTimingFileName] = useState("");
+  const [vrsTimingFileName, setVrsTimingFileName] = useState("");
   const [rangesByPlan, setRangesByPlan] = useState<
     Record<string, Record<number, StepRange>>
   >({});
@@ -96,27 +116,17 @@ export default function AnalysisPage() {
     eye: useRef<HTMLVideoElement | null>(null),
     gaze: useRef<HTMLVideoElement | null>(null),
   };
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useObjectUrlCleanup(streams);
 
   const activePlan = planForParticipant(activePlanId, participantId);
   const rangeKey = storageKeyFor(activePlanId, participantId);
   const ranges = rangesByPlan[rangeKey] ?? {};
-  const activeRange = activeStepNumber ? ranges[activeStepNumber] : undefined;
-  const activeHeartRows =
-    activeRange && isValidIsoRange(activeRange.startIso, activeRange.endIso)
-      ? filterHeartRateRows(heartRows, activeRange.startIso, activeRange.endIso)
-      : [];
 
-  const readySteps = useMemo(
-    () =>
-      activePlan.tasks.filter((_, index) => {
-        const range = ranges[index + 1];
-        return range && isValidIsoRange(range.startIso, range.endIso);
-      }).length,
-    [activePlan.tasks, ranges],
-  );
+  const readySteps = activePlan.tasks.filter((_, index) => {
+    const range = ranges[index + 1];
+    return range && isValidIsoRange(range.startIso, range.endIso);
+  }).length;
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -136,6 +146,7 @@ export default function AnalysisPage() {
           });
           setRangesByPlan(parsed.rangesByPlan ?? {});
           setTimingFileName(parsed.timingFileName ?? "");
+          setVrsTimingFileName(parsed.vrsTimingFileName ?? "");
         } catch {
           window.localStorage.removeItem(STORAGE_KEY);
         }
@@ -154,6 +165,7 @@ export default function AnalysisPage() {
         streamStartIso,
         rangesByPlan,
         timingFileName,
+        vrsTimingFileName,
       }),
     );
   }, [
@@ -163,56 +175,8 @@ export default function AnalysisPage() {
     rangesByPlan,
     streamStartIso,
     timingFileName,
+    vrsTimingFileName,
   ]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const context = canvas.getContext("2d");
-    if (!context) return;
-
-    const width = canvas.width;
-    const height = canvas.height;
-    context.clearRect(0, 0, width, height);
-    context.fillStyle = "#fffdf9";
-    context.fillRect(0, 0, width, height);
-    context.strokeStyle = "#eadfd3";
-    context.lineWidth = 1;
-    for (let line = 1; line < 4; line += 1) {
-      const y = (height / 4) * line;
-      context.beginPath();
-      context.moveTo(0, y);
-      context.lineTo(width, y);
-      context.stroke();
-    }
-    if (activeHeartRows.length === 0) {
-      context.fillStyle = "#73808d";
-      context.font = "16px Arial";
-      context.fillText("No heart-rate samples in this step", 30, height / 2);
-      return;
-    }
-
-    const minBpm = Math.min(...activeHeartRows.map((row) => row.bpm));
-    const maxBpm = Math.max(...activeHeartRows.map((row) => row.bpm));
-    const minTime = Date.parse(activeHeartRows[0].iso);
-    const maxTime = Date.parse(activeHeartRows[activeHeartRows.length - 1].iso);
-    const bpmSpread = Math.max(1, maxBpm - minBpm);
-    const timeSpread = Math.max(1, maxTime - minTime);
-
-    context.strokeStyle = "#f06449";
-    context.lineWidth = 3;
-    context.beginPath();
-    activeHeartRows.forEach((row, index) => {
-      const x = 20 + ((Date.parse(row.iso) - minTime) / timeSpread) * (width - 40);
-      const y = height - 24 - ((row.bpm - minBpm) / bpmSpread) * (height - 48);
-      if (index === 0) context.moveTo(x, y);
-      else context.lineTo(x, y);
-    });
-    context.stroke();
-    context.fillStyle = "#172638";
-    context.font = "14px Arial";
-    context.fillText(`${Math.round(minBpm)}-${Math.round(maxBpm)} bpm`, 20, 24);
-  }, [activeHeartRows]);
 
   const handleTimingUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -242,6 +206,56 @@ export default function AnalysisPage() {
     reader.readAsText(file);
   };
 
+  const handleVrsTimingUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = "";
+    if (files.length === 0) return;
+
+    Promise.all(
+      files.map(async (file) => ({
+        fileName: file.name,
+        content: await file.text(),
+      })),
+    )
+      .then((loadedFiles) => {
+        const vrsJson = loadedFiles.find((file) =>
+          file.fileName.toLowerCase().endsWith(".vrs.json"),
+        );
+        const rgbTimingCsv = loadedFiles.find(
+          (file) => file.fileName.toLowerCase() === "mp4_to_vrs_time_ns.csv",
+        );
+        const eyeTimingCsv = loadedFiles.find(
+          (file) =>
+            file.fileName.toLowerCase() === "eye_camera_mp4_to_vrs_time_ns.csv",
+        );
+
+        if (!vrsJson || !rgbTimingCsv) {
+          setStatusMessage(
+            "Choose the .vrs.json file plus mp4_to_vrs_time_ns.csv to auto-fill stream starts.",
+          );
+          return;
+        }
+
+        const inferredStarts = deriveStreamStartIsoFromVrsTimingFiles({
+          vrsJson: vrsJson.content,
+          rgbTimingCsv: rgbTimingCsv.content,
+          eyeTimingCsv: eyeTimingCsv?.content,
+        });
+        setStreamStartIso(inferredStarts);
+        setVrsTimingFileName(
+          `${vrsJson.fileName}, ${rgbTimingCsv.fileName}${eyeTimingCsv ? `, ${eyeTimingCsv.fileName}` : ""}`,
+        );
+        setStatusMessage(
+          eyeTimingCsv
+            ? "Auto-filled RGB, eye, and gaze ISO starts from VRS timing files."
+            : "Auto-filled RGB and gaze ISO starts from VRS timing files; eye uses the same start.",
+        );
+      })
+      .catch(() => {
+        setStatusMessage("Could not read the selected VRS timing files.");
+      });
+  };
+
   const handleVideoUpload =
     (key: StreamKey) => (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -251,36 +265,47 @@ export default function AnalysisPage() {
         setStatusMessage(`Choose a browser-playable video for ${streamLabels[key]}.`);
         return;
       }
+      const nextStream = {
+        fileName: file.name,
+        objectUrl: URL.createObjectURL(file),
+      };
+      let replacedObjectUrl: string | null = null;
       setStreams((current) => {
-        if (current[key]) URL.revokeObjectURL(current[key].objectUrl);
-        return {
-          ...current,
-          [key]: {
-            fileName: file.name,
-            objectUrl: URL.createObjectURL(file),
-          },
-        };
+        const replacement = replaceAnalysisVideoStream(current, key, nextStream);
+        replacedObjectUrl = replacement.replacedObjectUrl;
+        return replacement.streams;
       });
+      setStreamStatus((current) => ({
+        ...current,
+        [key]: { state: "loading", message: "Loading video metadata..." },
+      }));
+      if (replacedObjectUrl) URL.revokeObjectURL(replacedObjectUrl);
       setStatusMessage(`${streamLabels[key]} loaded.`);
     };
 
-  const handleHeartUpload = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const rows = parseHeartRateCsv(String(reader.result ?? ""));
-      setHeartRows(rows);
-      setHeartFileName(file.name);
-      setStatusMessage(
-        rows.length > 0
-          ? `Loaded ${rows.length} heart-rate samples.`
-          : "No timestamp and bpm columns were found in the heart-rate CSV.",
-      );
-    };
-    reader.onerror = () => setStatusMessage("Could not read the heart-rate CSV.");
-    reader.readAsText(file);
+  const handleVideoMetadataLoaded = (key: StreamKey) => {
+    const video = videoRefs[key].current;
+    const dimensions =
+      video && video.videoWidth > 0 && video.videoHeight > 0
+        ? `${video.videoWidth} x ${video.videoHeight}`
+        : "metadata";
+    setStreamStatus((current) => ({
+      ...current,
+      [key]: { state: "ready", message: `${dimensions} ready.` },
+    }));
+  };
+
+  const handleVideoError = (key: StreamKey) => {
+    const video = videoRefs[key].current;
+    const code = video?.error?.code ?? 0;
+    const message =
+      mediaErrorMessages[code] ??
+      "This video could not be loaded. Export it as H.264 MP4, then upload again.";
+    setStreamStatus((current) => ({
+      ...current,
+      [key]: { state: "error", message },
+    }));
+    setStatusMessage(`${streamLabels[key]} could not load. ${message}`);
   };
 
   const playStep = (stepNumber: number) => {
@@ -394,7 +419,7 @@ export default function AnalysisPage() {
             <h2>Analysis Console</h2>
             <p className="intro-copy">
               Segment the existing task plan with ISO timestamps and review only
-              the matching interval across RGB, eye camera, gaze, and heart rate.
+              the matching interval across RGB, eye camera, and gaze.
             </p>
           </div>
         </div>
@@ -410,6 +435,21 @@ export default function AnalysisPage() {
           <div>
             <strong>Step segments</strong>
             <span>{timingFileName || "No timing CSV imported"}</span>
+          </div>
+        </div>
+        <div className="analysis-source analysis-source-wide">
+          <label className="upload-button">
+            Import VRS timing files
+            <input
+              multiple
+              accept=".json,.csv,application/json,text/csv"
+              type="file"
+              onChange={handleVrsTimingUpload}
+            />
+          </label>
+          <div>
+            <strong>Auto-fill stream starts</strong>
+            <span>{vrsTimingFileName || "No VRS timing files imported"}</span>
           </div>
         </div>
       </section>
@@ -447,36 +487,28 @@ export default function AnalysisPage() {
               </div>
             </div>
             {streams[key] ? (
-              <video
-                controls
-                onTimeUpdate={() => stopAtSegmentEnd(key)}
-                ref={videoRefs[key]}
-                src={streams[key]?.objectUrl}
-              />
+              <div className="analysis-video-shell">
+                <video
+                  controls
+                  key={streams[key]?.objectUrl}
+                  onError={() => handleVideoError(key)}
+                  onLoadedMetadata={() => handleVideoMetadataLoaded(key)}
+                  onTimeUpdate={() => stopAtSegmentEnd(key)}
+                  preload="metadata"
+                  ref={videoRefs[key]}
+                  src={streams[key]?.objectUrl}
+                />
+                {streamStatus[key].state === "error" ? (
+                  <div className="analysis-video-message" role="status">
+                    {streamStatus[key].message}
+                  </div>
+                ) : null}
+              </div>
             ) : (
               <div className="analysis-empty">Upload this view to include it in step playback.</div>
             )}
           </article>
         ))}
-        <article className="analysis-view">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">HEART RATE</p>
-              <h3>{activeHeartRows.length} samples in active step</h3>
-              <span className="analysis-file-name">
-                {heartFileName || "No CSV loaded"}
-              </span>
-            </div>
-            <div className="analysis-view-tools">
-              <strong>{activeHeartRows.at(-1)?.bpm ? `${Math.round(activeHeartRows.at(-1)?.bpm ?? 0)}` : "--"}</strong>
-              <label className="upload-button analysis-upload-button">
-                Upload CSV
-                <input accept=".csv,text/csv" type="file" onChange={handleHeartUpload} />
-              </label>
-            </div>
-          </div>
-          <canvas ref={canvasRef} width="720" height="360" />
-        </article>
       </section>
 
       <section className="analysis-steps">

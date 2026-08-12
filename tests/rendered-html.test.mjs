@@ -97,11 +97,13 @@ test("analysis page omits training and keeps uploads in review panels", async ()
   assert.match(html, /Boba tea plan/);
   assert.match(html, /Table assembly plan/);
   assert.match(html, /Import AI timing CSV/);
+  assert.match(html, /Import VRS timing files/);
   assert.match(html, /RGB third-person view/);
   assert.match(html, /Eye camera view/);
   assert.match(html, /Estimated eye gaze view/);
   assert.match(html, /ISO start timestamp/);
-  assert.match(html, /heart rate/i);
+  assert.doesNotMatch(html, /heart rate/i);
+  assert.doesNotMatch(html, /Upload CSV/);
 });
 
 test("rendered console does not include the removed starter skeleton", async () => {

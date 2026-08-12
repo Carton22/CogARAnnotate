@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   deriveAnalysisStepRangesFromCsv,
-  filterHeartRateRows,
+  deriveStreamStartIsoFromVrsTimingFiles,
   isValidIsoRange,
-  parseHeartRateCsv,
+  replaceAnalysisVideoStream,
   secondsBetweenIso,
 } from "../app/analysis-model.ts";
 
@@ -27,23 +27,38 @@ test("isValidIsoRange requires parseable ISO strings with end after start", () =
   assert.equal(isValidIsoRange("not-time", "2026-08-07T12:00:00.000Z"), false);
 });
 
-test("parseHeartRateCsv reads common timestamp and bpm columns", () => {
-  const rows = parseHeartRateCsv(`timestamp,heart_rate\n2026-08-07T12:00:00Z,72\n2026-08-07T12:00:05Z,75`);
-  assert.deepEqual(rows, [
-    { iso: "2026-08-07T12:00:00.000Z", bpm: 72 },
-    { iso: "2026-08-07T12:00:05.000Z", bpm: 75 },
-  ]);
+test("replaceAnalysisVideoStream preserves other loaded views and reports only the replaced URL", () => {
+  const streams = {
+    rgb: { fileName: "rgb.mp4", objectUrl: "blob:rgb-old" },
+    eye: { fileName: "eye.mp4", objectUrl: "blob:eye" },
+    gaze: { fileName: "gaze.mp4", objectUrl: "blob:gaze" },
+  };
+
+  const result = replaceAnalysisVideoStream(streams, "rgb", {
+    fileName: "rgb-new.mp4",
+    objectUrl: "blob:rgb-new",
+  });
+
+  assert.equal(result.replacedObjectUrl, "blob:rgb-old");
+  assert.deepEqual(result.streams, {
+    rgb: { fileName: "rgb-new.mp4", objectUrl: "blob:rgb-new" },
+    eye: streams.eye,
+    gaze: streams.gaze,
+  });
 });
 
-test("filterHeartRateRows returns rows inside inclusive ISO range", () => {
-  const rows = [
-    { iso: "2026-08-07T12:00:00.000Z", bpm: 72 },
-    { iso: "2026-08-07T12:00:05.000Z", bpm: 75 },
-    { iso: "2026-08-07T12:00:10.000Z", bpm: 77 },
-  ];
+test("deriveStreamStartIsoFromVrsTimingFiles fills RGB, gaze, and eye starts from VRS sidecars", () => {
   assert.deepEqual(
-    filterHeartRateRows(rows, "2026-08-07T12:00:05.000Z", "2026-08-07T12:00:10.000Z"),
-    rows.slice(1),
+    deriveStreamStartIsoFromVrsTimingFiles({
+      vrsJson: JSON.stringify({ start_time: 1786545207 }),
+      rgbTimingCsv: "mp4_frame_index,vrs_device_time_ns\n0,483194450646187\n",
+      eyeTimingCsv: "mp4_frame_index,vrs_device_time_ns\n0,483194350744487\n",
+    }),
+    {
+      rgb: "2026-08-12T14:33:27.000Z",
+      gaze: "2026-08-12T14:33:27.000Z",
+      eye: "2026-08-12T14:33:26.900Z",
+    },
   );
 });
 
