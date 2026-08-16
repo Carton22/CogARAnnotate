@@ -4,6 +4,72 @@ import test from "node:test";
 const model = await import("../app/annotation-model.ts");
 const taskPlans = await import("../app/task-plans.ts");
 
+const canonicalPlanInstructionText = {
+  training: [
+    "Put a long piece on the ground",
+    "Put a square piece at slot 1",
+    "Put a square piece at slot 2",
+    "Put a long piece on the top",
+    "Put a square piece at slot 3",
+    "Put a square piece at slot 4",
+    "Put a long piece on the top",
+  ],
+  sandwich: [
+    "Take a plate",
+    "Put a bread into the plate",
+    "Add a piece of cheese",
+    "Add a piece of ham",
+    "Add ketchup",
+    "Add a bread on top",
+    "Put into microwave",
+    "Add peppers",
+    "Add the green celery",
+    "Add water into a cup",
+  ],
+  shelf: [
+    "Classify the pieces based on color",
+    "Insert a green at slot 1 of the yellow",
+    "Insert a pink piece at slot 2 of the yellow",
+    "Insert another 2 pink at slot 3 and 4 of the yellow",
+    "Insert a green piece at slot 5",
+    "Connect another yellow piece with the greens and pinks",
+    "Connect a blue piece with the 2 green",
+    "Insert a purple piece at slot 3 of the yellow",
+    "Insert a pink piece at slot 5",
+    "Connect the black piece with the 2 green pieces",
+  ],
+  boba: [
+    "Add strawberry sugar syrup into a cup",
+    "Add boba",
+    "Add strawberry yogurt as the bottom layer",
+    "Pour matcha latte into the cup",
+    "Pour coconut milk into the cup",
+    "Add milk cream on the top",
+    "Put a lid on the cup",
+    "grab the left bottle to add white sugar",
+    "use a fork to add matcha powder",
+    "Insert a white straw",
+  ],
+  table: [
+    "Insert a No.4 at slot 1 of a No.3",
+    "Connect another No.3 with the No.4",
+    "Insert a No.4 at slot 2 of the No.3",
+    "Connect a No.1 on top of the 2 No.3",
+    "Connect a No.2 with the No.1",
+    "Connect 2 No.5 with a No.6",
+    "Connect another No.6 with the No.5",
+    "Take a cutting knife",
+    "Connect a No.5 with a No.9",
+    "Connect a No.6 with a No.8",
+  ],
+};
+
+function mainInstructionText(task) {
+  return task.mainKind === "correct"
+    ? task.correctOptions[0]?.text
+    : task.incorrectOptions?.[0]?.text;
+}
+
 const distractorWindows = [
   { label: "A", allowed: new Set([1, 2, 3]) },
   { label: "B", allowed: new Set([3, 4, 5]) },
@@ -36,15 +102,35 @@ function assertDistractorWindows(tasks) {
   assert.ok(positions[1].index < positions[2].index, "B should appear before C");
 }
 
-test("includes a 5-step training plan before the four 7-correct-step study plans", () => {
+test("includes the Reliance training plan before the four 7-correct-step study plans", () => {
   assert.deepEqual(
     taskPlans.plans.map((plan) => plan.id),
     ["training", "sandwich", "shelf", "boba", "table"],
   );
-  assert.equal(taskPlans.plans[0].tasks.length, 5);
+  assert.equal(taskPlans.plans[0].tasks.length, 7);
   for (const plan of taskPlans.plans.slice(1)) {
     assert.equal(plan.tasks.length, 7);
     assert.equal(plan.tasks.filter((task) => task.mainKind === "correct").length, 7);
+  }
+});
+
+test("aligns main AI audio instruction text with CogARReliance for all participants", () => {
+  for (const [planId, expectedText] of Object.entries(canonicalPlanInstructionText)) {
+    const participantIds =
+      planId === "training"
+        ? ["P01"]
+        : Array.from({ length: 36 }, (_, index) => `P${String(index + 1).padStart(2, "0")}`);
+
+    for (const participantId of participantIds) {
+      const plan = taskPlans.planForParticipant(planId, participantId);
+      const actualText = plan.tasks.map(mainInstructionText);
+
+      assert.deepEqual(
+        [...actualText].sort(),
+        [...expectedText].sort(),
+        `${planId} ${participantId} should use CogARReliance main AI audio text`,
+      );
+    }
   }
 });
 

@@ -120,8 +120,10 @@ test("boba distractors align with CogARReliance wording", async () => {
   const { planForParticipant } = await import("../app/task-plans.ts");
   const taskNames = planForParticipant("boba", "P01").tasks.map((task) => task.name);
 
-  assert.ok(taskNames.includes("Grab a fork"));
+  assert.ok(taskNames.includes("use a fork to add matcha powder"));
+  assert.ok(taskNames.includes("Insert a white straw"));
   assert.ok(!taskNames.includes("Mix up the current cup"));
+  assert.ok(!taskNames.includes("Add a piece of lemon on the edge"));
 });
 
 test("all five Likert questions use a 1 through 7 scale", async () => {

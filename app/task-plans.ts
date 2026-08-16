@@ -36,7 +36,26 @@ const trainingCorrectSteps = [
   "Put a square piece at slot 1",
   "Put a square piece at slot 2",
   "Put a square piece at slot 3",
+  "Put a square piece at slot 4",
   "Put a long piece on the top",
+];
+const trainingTasks: Task[] = [
+  ...trainingCorrectSteps.slice(0, 3).map((text) => ({
+    name: text,
+    correctOptions: [{ text }],
+    mainKind: "correct" as const,
+  })),
+  {
+    name: "Put a long piece on the top",
+    correctOptions: [],
+    incorrectOptions: [{ text: "Put a long piece on the top" }],
+    mainKind: "incorrect",
+  },
+  ...trainingCorrectSteps.slice(3).map((text) => ({
+    name: text,
+    correctOptions: [{ text }],
+    mainKind: "correct" as const,
+  })),
 ];
 const sandwichCorrectSteps = [
   "Take a plate",
@@ -51,19 +70,19 @@ const shelfCorrectSteps = [
   "Classify the pieces based on color",
   "Insert a green at slot 1 of the yellow",
   "Insert a pink piece at slot 2 of the yellow",
-  "Insert another 2 pink at slot 3 and 4",
+  "Insert another 2 pink at slot 3 and 4 of the yellow",
   "Insert a green piece at slot 5",
-  "Connect another yellow with the green and pink",
+  "Connect another yellow piece with the greens and pinks",
   "Connect a blue piece with the 2 green",
 ];
 const bobaCorrectSteps = [
   "Add strawberry sugar syrup into a cup",
   "Add boba",
-  "Add the yogurt as bottom layer",
-  "Pour matcha latte",
-  "Pour coconut milk",
+  "Add strawberry yogurt as the bottom layer",
+  "Pour matcha latte into the cup",
+  "Pour coconut milk into the cup",
   "Add milk cream on the top",
-  "Add matcha powder",
+  "Put a lid on the cup",
 ];
 const tableCorrectSteps = [
   "Insert a No.4 at slot 1 of a No.3",
@@ -87,17 +106,17 @@ const randomizedTaskConfigs = {
   shelf: {
     correctSteps: shelfCorrectSteps,
     distractorSteps: [
-      "Insert a purple at slot 3 of the yellow",
+      "Insert a purple piece at slot 3 of the yellow",
       "Insert a pink piece at slot 5",
-      "Take a black piece",
+      "Connect the black piece with the 2 green pieces",
     ],
   },
   boba: {
     correctSteps: bobaCorrectSteps,
     distractorSteps: [
-      "Add white sugar to the cup",
-      "Grab a fork",
-      "Add a piece of lemon on the edge",
+      "grab the left bottle to add white sugar",
+      "use a fork to add matcha powder",
+      "Insert a white straw",
     ],
   },
   table: {
@@ -132,12 +151,8 @@ export const plans: Plan[] = [
     title: "Training plan",
     annotationTitle: "Training annotation",
     description:
-      "Annotate the participant's five-step training task before the study tasks.",
-    tasks: trainingCorrectSteps.map((text) => ({
-      name: text,
-      correctOptions: [{ text }],
-      mainKind: "correct",
-    })),
+      "Annotate the participant's training task before the study tasks.",
+    tasks: trainingTasks,
   },
   {
     id: "sandwich",
