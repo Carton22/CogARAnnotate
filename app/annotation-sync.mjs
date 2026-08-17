@@ -1,5 +1,5 @@
 export const DEFAULT_ANNOTATION_SHEET_SYNC_URL =
-  "https://script.google.com/macros/s/AKfycbzUxa4NHf1AiCrBYBSLr_8b_nGAnwDU8Ay32S08-rdI2sp3URfVg-EtKPyXS2hB9uhn/exec";
+  "https://script.google.com/macros/s/AKfycbyfxUg6mQ8Qb2UqhUkmnJz_MvTmB1TxKAxeht2-RFZN9GD4mvZr2wDv7ZMyqzLYb5Rc/exec";
 
 export async function publishAnnotations(
   rows,
