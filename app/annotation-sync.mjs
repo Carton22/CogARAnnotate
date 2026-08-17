@@ -15,6 +15,13 @@ export async function publishAnnotations(
     throw new Error("Google Sheets sync URL is required.");
   }
 
+  const sheetRows = rows.map((row) => ({
+    ...row,
+    trust_in_ai: row.trust_in_ai ?? row.confidence ?? "",
+    task_planning_score:
+      row.task_planning_score ?? row.task_planning_engagement ?? "",
+  }));
+
   await fetchImpl(url, {
     method: "POST",
     mode: "no-cors",
@@ -25,7 +32,7 @@ export async function publishAnnotations(
     body: JSON.stringify({
       source: "cogar-annotation-console",
       type: "annotations",
-      rows,
+      rows: sheetRows,
     }),
   });
 }

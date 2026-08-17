@@ -20,6 +20,7 @@ test("posts annotation rows to the configured Apps Script endpoint", async () =>
       reliance_amount: 5,
       confidence: 6,
       cognitive_engagement: 4,
+      task_planning_engagement: 7,
       cognitive_state: "taking-actions",
       notes: "checked the recommendation",
       source_vrs_name: "No RGB recording loaded",
@@ -42,7 +43,13 @@ test("posts annotation rows to the configured Apps Script endpoint", async () =>
   assert.deepEqual(JSON.parse(requests[0].init.body), {
     source: "cogar-annotation-console",
     type: "annotations",
-    rows,
+    rows: [
+      {
+        ...rows[0],
+        trust_in_ai: 6,
+        task_planning_score: 7,
+      },
+    ],
   });
 });
 

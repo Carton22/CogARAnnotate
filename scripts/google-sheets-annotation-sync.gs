@@ -10,10 +10,10 @@ const HEADERS = [
   "end_timecode",
   "duration_seconds",
   "reliance_amount",
-  "ai_trust",
+  "trust_in_ai",
   "final_action_confidence",
   "cognitive_engagement",
-  "task_planning_engagement",
+  "task_planning_score",
   "cognitive_state",
   "notes",
   "source_vrs_name",
@@ -57,7 +57,12 @@ function appendAnnotationRow(spreadsheet, row) {
   const sheet = sheetForParticipant(spreadsheet, row.participant_id);
   ensureHeaders(sheet);
   sheet.appendRow(HEADERS.map((field) => {
-    if (field === "ai_trust") return rowValue(row, "confidence");
+    if (field === "trust_in_ai") {
+      return rowValue(row, "trust_in_ai") || rowValue(row, "confidence");
+    }
+    if (field === "task_planning_score") {
+      return rowValue(row, "task_planning_score") || rowValue(row, "task_planning_engagement");
+    }
     return rowValue(row, field);
   }));
 }
