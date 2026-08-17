@@ -12,6 +12,7 @@ export type Task = {
   name: string;
   correctOptions: InstructionOption[];
   incorrectOptions?: InstructionOption[];
+  recoveryOptions?: InstructionOption[];
   mainKind: CueKind;
 };
 
@@ -30,6 +31,7 @@ const DISTRACTOR_INSERT_WINDOWS = [
   { label: "B", allowedAfterCorrectSteps: [3, 4, 5] },
   { label: "C", allowedAfterCorrectSteps: [5, 6, 7] },
 ];
+const PARTICIPANT_COUNTERBALANCE_COUNT = 36;
 
 const trainingCorrectSteps = [
   "Put a long piece on the ground",
@@ -110,6 +112,11 @@ const randomizedTaskConfigs = {
       "Insert a pink piece at slot 5",
       "Connect the black piece with the 2 green pieces",
     ],
+    recoverySteps: [
+      "remove the purple piece at slot 3, because the size doesn't match",
+      "remove the pink piece at slot 5, because the shape doesn't match",
+      "Remove the black piece, because the size doesn't match",
+    ],
   },
   boba: {
     correctSteps: bobaCorrectSteps,
@@ -117,6 +124,11 @@ const randomizedTaskConfigs = {
       "grab the left bottle to add white sugar",
       "use a fork to add matcha powder",
       "Insert a white straw",
+    ],
+    recoverySteps: [
+      "grab the right bottle to add white sugar",
+      "Use a spoon to add matcha powder",
+      "Oh, replace the straw with a bigger black straw for boba",
     ],
   },
   table: {
@@ -129,7 +141,7 @@ const randomizedTaskConfigs = {
   },
 } satisfies Record<
   "sandwich" | "shelf" | "boba" | "table",
-  { correctSteps: string[]; distractorSteps: string[] }
+  { correctSteps: string[]; distractorSteps: string[]; recoverySteps?: string[] }
 >;
 
 function seededRandom(seedText: string) {
@@ -216,18 +228,25 @@ export function planForParticipant(planId: PlanId, participantId: string): Plan 
   const base = plans.find((plan) => plan.id === planId) ?? plans[0];
   if (planId === "training") return base;
   const config = randomizedTaskConfigs[planId];
-  const random = seededRandom(`${planId}-${participantNumber(participantId)}`);
+  const numericParticipantId = participantNumber(participantId);
   const buckets = new Map<number, Task[]>();
   for (const [index, text] of config.distractorSteps.entries()) {
     const allowedAfterCorrectSteps =
       DISTRACTOR_INSERT_WINDOWS[index].allowedAfterCorrectSteps;
-    const insertAfterCorrectStep =
-      allowedAfterCorrectSteps[Math.floor(random() * allowedAfterCorrectSteps.length)];
+    const insertAfterCorrectStep = counterbalancedChoice(
+      allowedAfterCorrectSteps,
+      planId,
+      index,
+      numericParticipantId,
+    );
     const bucket = buckets.get(insertAfterCorrectStep) ?? [];
     bucket.push({
       name: text,
       correctOptions: [],
       incorrectOptions: [{ text }],
+      recoveryOptions: config.recoverySteps?.[index]
+        ? [{ text: config.recoverySteps[index] }]
+        : undefined,
       mainKind: "incorrect",
     });
     buckets.set(insertAfterCorrectStep, bucket);
@@ -237,4 +256,48 @@ export function planForParticipant(planId: PlanId, participantId: string): Plan 
     ...(buckets.get(index + 1) ?? []),
   ]);
   return { ...base, tasks };
+}
+
+const counterbalanceOrderCache = new Map<string, number[]>();
+
+function counterbalancedChoice<T>(
+  values: T[],
+  planId: "sandwich" | "shelf" | "boba" | "table",
+  distractorIndex: number,
+  participantId: number,
+) {
+  const participantIndex = normalizedParticipantIndex(participantId);
+  const order = counterbalancedOrder(`${planId}-${distractorIndex}`, values.length);
+  return values[order[participantIndex]];
+}
+
+function normalizedParticipantIndex(participantId: number) {
+  const integerParticipantId = Number.isFinite(participantId)
+    ? Math.trunc(participantId)
+    : 1;
+  return (
+    ((integerParticipantId - 1) % PARTICIPANT_COUNTERBALANCE_COUNT) +
+    PARTICIPANT_COUNTERBALANCE_COUNT
+  ) % PARTICIPANT_COUNTERBALANCE_COUNT;
+}
+
+function counterbalancedOrder(seedText: string, bucketCount: number) {
+  const cacheKey = `${seedText}-${bucketCount}`;
+  const cached = counterbalanceOrderCache.get(cacheKey);
+  if (cached) return cached;
+
+  const order = Array.from(
+    { length: PARTICIPANT_COUNTERBALANCE_COUNT },
+    (_, index) => index % bucketCount,
+  );
+  shuffleInPlace(order, seededRandom(`counterbalance-${seedText}`));
+  counterbalanceOrderCache.set(cacheKey, order);
+  return order;
+}
+
+function shuffleInPlace<T>(values: T[], random: () => number) {
+  for (let index = values.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1));
+    [values[index], values[swapIndex]] = [values[swapIndex], values[index]];
+  }
 }

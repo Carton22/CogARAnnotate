@@ -102,6 +102,37 @@ function assertDistractorWindows(tasks) {
   assert.ok(positions[1].index < positions[2].index, "B should appear before C");
 }
 
+function misleadingSequenceNumbers(planId) {
+  return Array.from({ length: 36 }, (_, index) => {
+    const participantId = `P${String(index + 1).padStart(2, "0")}`;
+    return taskPlans
+      .planForParticipant(planId, participantId)
+      .tasks.flatMap((task, taskIndex) =>
+        task.mainKind === "incorrect" ? [taskIndex + 1] : [],
+      );
+  });
+}
+
+function misleadingPositionCounts(planId) {
+  const counts = {
+    2: 0,
+    3: 0,
+    4: 0,
+    5: 0,
+    6: 0,
+    7: 0,
+    8: 0,
+    9: 0,
+    10: 0,
+  };
+  for (const sequenceNumbers of misleadingSequenceNumbers(planId)) {
+    for (const sequenceNumber of sequenceNumbers) {
+      counts[sequenceNumber] += 1;
+    }
+  }
+  return counts;
+}
+
 test("includes the Reliance training plan before the four 7-correct-step study plans", () => {
   assert.deepEqual(
     taskPlans.plans.map((plan) => plan.id),
@@ -171,6 +202,61 @@ test("uses the same participant-stable Boba sequence as CogARReliance", () => {
   assert.equal(p1.tasks.filter((task) => task.mainKind === "correct").length, 7);
   assert.equal(p1.tasks.filter((task) => task.mainKind === "incorrect").length, 3);
   assertDistractorWindows(p1.tasks);
+});
+
+test("counterbalances Shelf and Boba misleading positions like CogARReliance", () => {
+  assert.deepEqual(misleadingSequenceNumbers("shelf").slice(0, 3), [
+    [4, 6, 9],
+    [3, 7, 9],
+    [3, 5, 8],
+  ]);
+  assert.deepEqual(misleadingSequenceNumbers("boba").slice(0, 3), [
+    [3, 6, 10],
+    [4, 6, 8],
+    [3, 5, 9],
+  ]);
+
+  for (const planId of ["shelf", "boba"]) {
+    assert.deepEqual(misleadingPositionCounts(planId), {
+      2: 12,
+      3: 12,
+      4: 12,
+      5: 12,
+      6: 12,
+      7: 12,
+      8: 12,
+      9: 12,
+      10: 12,
+    });
+  }
+});
+
+test("keeps CogARReliance recovery cue text on misleading annotation steps", () => {
+  const shelf = taskPlans.planForParticipant("shelf", "P01");
+  assert.deepEqual(
+    shelf
+      .tasks
+      .filter((task) => task.mainKind === "incorrect")
+      .map((task) => task.recoveryOptions?.[0]?.text),
+    [
+      "remove the purple piece at slot 3, because the size doesn't match",
+      "remove the pink piece at slot 5, because the shape doesn't match",
+      "Remove the black piece, because the size doesn't match",
+    ],
+  );
+
+  const boba = taskPlans.planForParticipant("boba", "P01");
+  assert.deepEqual(
+    boba
+      .tasks
+      .filter((task) => task.mainKind === "incorrect")
+      .map((task) => task.recoveryOptions?.[0]?.text),
+    [
+      "grab the right bottle to add white sugar",
+      "Use a spoon to add matcha powder",
+      "Oh, replace the straw with a bigger black straw for boba",
+    ],
+  );
 });
 
 test("uses the same participant-stable Table sequence as CogARReliance", () => {
