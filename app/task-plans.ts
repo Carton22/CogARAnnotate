@@ -70,12 +70,12 @@ const sandwichCorrectSteps = [
 ];
 const shelfCorrectSteps = [
   "Classify the pieces based on color",
-  "Insert a green at slot 1 of the yellow",
+  "Insert side A of a green into slot 1 of the yellow",
   "Insert a pink piece at slot 2 of the yellow",
   "Insert another 2 pink at slot 3 and 4 of the yellow",
-  "Insert a green piece at slot 5",
-  "Connect another yellow piece with the greens and pinks",
-  "Connect a blue piece with the 2 green",
+  "Insert side A of a green into slot 5 of the yellow",
+  "Connect No.2 yellow piece with the greens and pinks",
+  "Connect the blue piece with side B of 2 green pieces",
 ];
 const bobaCorrectSteps = [
   "Add strawberry sugar syrup into a cup",
@@ -108,9 +108,9 @@ const randomizedTaskConfigs = {
   shelf: {
     correctSteps: shelfCorrectSteps,
     distractorSteps: [
-      "Insert a purple piece at slot 3 of the yellow",
+      "Insert side A of a purple piece into slot 3 of the yellow",
       "Insert a brown piece at slot 5",
-      "Connect the black piece with the 2 green pieces",
+      "Connect the black piece with side B of 2 green pieces",
     ],
     recoverySteps: [
       "remove the purple piece at slot 3, because the size doesn't match",

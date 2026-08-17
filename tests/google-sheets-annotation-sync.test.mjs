@@ -35,7 +35,7 @@ async function loadScript() {
             const sheet = {
               getRange() {
                 return {
-                  getValues: () => [Array(15).fill("")],
+                  getValues: () => [Array(20).fill("")],
                   setValues: (rows) => headerWrites.push({ sheet: name, rows }),
                 };
               },
@@ -91,7 +91,8 @@ test("appends annotation rows to participant sheets", async () => {
   assert.deepEqual(JSON.parse(response.value), { ok: true, appended: 1 });
   assert.equal(headerWrites.length, 1);
   assert.equal(headerWrites[0].sheet, "P01");
-  assert.deepEqual(Array.from(headerWrites[0].rows[0]), [
+  const headers = Array.from(headerWrites[0].rows[0]);
+  assert.deepEqual(headers, [
     "session_id",
     "participant_id",
     "task_plan_id",
@@ -102,8 +103,8 @@ test("appends annotation rows to participant sheets", async () => {
     "end_seconds",
     "end_timecode",
     "duration_seconds",
-    "reliance",
-    "confidence",
+    "reliance_amount",
+    "ai_trust",
     "final_action_confidence",
     "cognitive_engagement",
     "task_planning_engagement",
@@ -118,6 +119,31 @@ test("appends annotation rows to participant sheets", async () => {
   assert.equal(appendedRows[0].row.length, 20);
   assert.equal(appendedRows[0].row[0], "draft-P01-sandwich");
   assert.equal(appendedRows[0].row[1], "P01");
+  assert.deepEqual(
+    Object.fromEntries(headers.map((header, index) => [header, appendedRows[0].row[index]])),
+    {
+      session_id: "draft-P01-sandwich",
+      participant_id: "P01",
+      task_plan_id: "sandwich",
+      step_number: 1,
+      step_name: "Take a slice of bread",
+      start_seconds: 3,
+      start_timecode: "00:03",
+      end_seconds: 9,
+      end_timecode: "00:09",
+      duration_seconds: 6,
+      reliance_amount: 5,
+      ai_trust: 6,
+      final_action_confidence: 7,
+      cognitive_engagement: 4,
+      task_planning_engagement: 5,
+      cognitive_state: "taking-actions",
+      notes: "checked the recommendation",
+      source_vrs_name: "No RGB recording loaded",
+      rgb_video_url: "",
+      updated_at: "2026-08-05T14:05:00.000Z",
+    },
+  );
   assert.equal(appendedRows[0].row[12], 7);
   assert.equal(appendedRows[0].row[14], 5);
   assert.equal(appendedRows[0].row[15], "taking-actions");
@@ -125,7 +151,6 @@ test("appends annotation rows to participant sheets", async () => {
   assert.equal(appendedRows[0].row[17], "No RGB recording loaded");
   assert.equal(appendedRows[0].row[18], "");
   assert.equal(appendedRows[0].row[19], "2026-08-05T14:05:00.000Z");
-  assert.equal(appendedRows[0].row[10], 5);
 });
 
 test("rejects annotation posts without rows", async () => {
