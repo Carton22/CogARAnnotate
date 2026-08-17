@@ -23,6 +23,7 @@ import {
 } from "./annotation-model";
 import {
   DEFAULT_ANNOTATION_SHEET_SYNC_URL,
+  normalizeAnnotationSheetSyncUrl,
   publishAnnotations,
 } from "./annotation-sync.mjs";
 import { planForParticipant, plans, type PlanId } from "./task-plans";
@@ -167,8 +168,11 @@ export default function Home() {
           setSelectedSession(null);
           setAnnotationsBySession(parsed.annotationsBySession ?? {});
           if (typeof parsed.sheetSyncUrl === "string") {
-            setSheetSyncUrl(parsed.sheetSyncUrl);
-            setSheetSyncStatus(parsed.sheetSyncUrl.trim() ? "ready" : "off");
+            const migratedSheetSyncUrl = normalizeAnnotationSheetSyncUrl(
+              parsed.sheetSyncUrl,
+            );
+            setSheetSyncUrl(migratedSheetSyncUrl);
+            setSheetSyncStatus(migratedSheetSyncUrl.trim() ? "ready" : "off");
           }
         } catch {
           window.localStorage.removeItem(STORAGE_KEY);

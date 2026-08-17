@@ -1,6 +1,17 @@
 export const DEFAULT_ANNOTATION_SHEET_SYNC_URL =
   "https://script.google.com/macros/s/AKfycbyfxUg6mQ8Qb2UqhUkmnJz_MvTmB1TxKAxeht2-RFZN9GD4mvZr2wDv7ZMyqzLYb5Rc/exec";
 
+const DEPRECATED_ANNOTATION_SHEET_SYNC_URLS = new Set([
+  "https://script.google.com/macros/s/AKfycbzUxa4NHf1AiCrBYBSLr_8b_nGAnwDU8Ay32S08-rdI2sp3URfVg-EtKPyXS2hB9uhn/exec",
+]);
+
+export function normalizeAnnotationSheetSyncUrl(sheetSyncUrl) {
+  const url = String(sheetSyncUrl ?? "").trim();
+  return DEPRECATED_ANNOTATION_SHEET_SYNC_URLS.has(url)
+    ? DEFAULT_ANNOTATION_SHEET_SYNC_URL
+    : url;
+}
+
 export async function publishAnnotations(
   rows,
   sheetSyncUrl,
@@ -10,7 +21,7 @@ export async function publishAnnotations(
     throw new Error("No annotation rows to sync.");
   }
 
-  const url = String(sheetSyncUrl ?? "").trim();
+  const url = normalizeAnnotationSheetSyncUrl(sheetSyncUrl);
   if (!url) {
     throw new Error("Google Sheets sync URL is required.");
   }

@@ -53,6 +53,28 @@ test("posts annotation rows to the configured Apps Script endpoint", async () =>
   });
 });
 
+test("migrates the retired Apps Script endpoint to the current deployment", async () => {
+  const requests = [];
+  const retiredUrl =
+    "https://script.google.com/macros/s/AKfycbzUxa4NHf1AiCrBYBSLr_8b_nGAnwDU8Ay32S08-rdI2sp3URfVg-EtKPyXS2hB9uhn/exec";
+
+  assert.equal(
+    sync.normalizeAnnotationSheetSyncUrl(retiredUrl),
+    sync.DEFAULT_ANNOTATION_SHEET_SYNC_URL,
+  );
+
+  await sync.publishAnnotations(
+    [{ participant_id: "P01", confidence: 3, task_planning_engagement: 6 }],
+    retiredUrl,
+    async (url, init) => {
+      requests.push({ url, init });
+      return new Response(null, { status: 204 });
+    },
+  );
+
+  assert.equal(String(requests[0].url), sync.DEFAULT_ANNOTATION_SHEET_SYNC_URL);
+});
+
 test("rejects missing sync URLs and empty row sets", async () => {
   await assert.rejects(
     () => sync.publishAnnotations([], "https://script.google.com/macros/s/test/exec", async () => new Response()),
