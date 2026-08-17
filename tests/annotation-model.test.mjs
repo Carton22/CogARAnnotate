@@ -35,7 +35,7 @@ const canonicalPlanInstructionText = {
     "Connect another yellow piece with the greens and pinks",
     "Connect a blue piece with the 2 green",
     "Insert a purple piece at slot 3 of the yellow",
-    "Insert a pink piece at slot 5",
+    "Insert a brown piece at slot 5",
     "Connect the black piece with the 2 green pieces",
   ],
   boba: [
@@ -240,7 +240,7 @@ test("keeps CogARReliance recovery cue text on misleading annotation steps", () 
       .map((task) => task.recoveryOptions?.[0]?.text),
     [
       "remove the purple piece at slot 3, because the size doesn't match",
-      "remove the pink piece at slot 5, because the shape doesn't match",
+      "remove the brown piece at slot 5, because the shape doesn't match",
       "Remove the black piece, because the size doesn't match",
     ],
   );

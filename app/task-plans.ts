@@ -109,12 +109,12 @@ const randomizedTaskConfigs = {
     correctSteps: shelfCorrectSteps,
     distractorSteps: [
       "Insert a purple piece at slot 3 of the yellow",
-      "Insert a pink piece at slot 5",
+      "Insert a brown piece at slot 5",
       "Connect the black piece with the 2 green pieces",
     ],
     recoverySteps: [
       "remove the purple piece at slot 3, because the size doesn't match",
-      "remove the pink piece at slot 5, because the shape doesn't match",
+      "remove the brown piece at slot 5, because the shape doesn't match",
       "Remove the black piece, because the size doesn't match",
     ],
   },
