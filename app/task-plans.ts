@@ -80,7 +80,7 @@ const shelfCorrectSteps = [
 const bobaCorrectSteps = [
   "Add strawberry sugar syrup into a cup",
   "Add boba",
-  "Add strawberry yogurt as the bottom layer",
+  "Add strawberry yogurt into the cup",
   "Pour matcha latte into the cup",
   "Pour coconut milk into the cup",
   "Add milk cream on the top",
